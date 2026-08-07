@@ -108,17 +108,21 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
     width: 62px;
 }
 #navBtn:hover { background: #35373c; color: #f2f3f5; }
-#navBtn:checked { background: #5865f2; color: #ffffff; }
+#navBtn:checked {
+    background: #404249;
+    color: #f2f3f5;
+    border-left: 3px solid #5865f2;
+}
 #listWrap {
     background: #2b2d31;
     border-right: 1px solid #1e1f22;
 }
 #listTitle {
     background: #2b2d31;
-    color: #f2f3f5;
-    font-size: 16px;
-    font-weight: bold;
-    padding-left: 16px;
+    color: #dbdee1;
+    font-size: 15px;
+    font-weight: 600;
+    padding-left: 14px;
     border-bottom: 1px solid #1e1f22;
 }
 #contactToolbar { background: #2b2d31; }

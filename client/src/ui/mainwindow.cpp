@@ -23,7 +23,7 @@
 
 namespace {
 const int kRailWidth = 72;
-const int kListWidth = 280;
+const int kListWidth = 240;
 }
 
 MainWindow::MainWindow(AppContext* ctx, QWidget* parent)

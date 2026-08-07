@@ -25,7 +25,7 @@ protected:
     void leaveEvent(QEvent* event) override;
 
 private:
-    static const int kRowHeight = 60;
+    static const int kRowHeight = 56;
     QtSession session_;
     bool hovered_ = false;
     bool pinned_ = false;

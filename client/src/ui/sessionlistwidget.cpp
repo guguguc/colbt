@@ -68,7 +68,7 @@ void SessionItemWidget::paintEvent(QPaintEvent*) {
     titleFont.setBold(true);
     QFontMetrics tfm(titleFont);
     p.setFont(titleFont);
-    p.setPen(QColor("#f2f3f5"));
+    p.setPen(QColor("#dbdee1"));
     int textX = 10 + kAvatarSize + 10;
     p.drawText(QRect(textX, 8, width() - textX - 70, tfm.height()), Qt::AlignLeft | Qt::AlignVCenter,
                tfm.elidedText(session_.title, Qt::ElideRight, width() - textX - 70));
@@ -95,7 +95,7 @@ void SessionItemWidget::paintEvent(QPaintEvent*) {
     previewFont.setPointSizeF(previewFont.pointSizeF() - 0.5);
     QFontMetrics pfm(previewFont);
     p.setFont(previewFont);
-    p.setPen(QColor("#b5bac1"));
+    p.setPen(QColor("#949ba4"));
     p.drawText(QRect(textX, 8 + tfm.height(), width() - textX - 12, pfm.height()),
                Qt::AlignLeft | Qt::AlignVCenter,
                pfm.elidedText(session_.lastContent.isEmpty() ? QStringLiteral(" ")

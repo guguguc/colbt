@@ -185,7 +185,7 @@ void BubbleWidget::paintEvent(QPaintEvent*) {
         } else {
             QPainterPath bubblePath;
             bubblePath.addRoundedRect(QRectF(imgRect), 8, 8);
-            p.fillPath(bubblePath, own ? QColor("#5865f2") : QColor("#383a40"));
+            p.fillPath(bubblePath, QColor("#2b2d31"));
             p.setPen(QColor("#d4d7dc"));
             p.drawText(imgRect, Qt::AlignCenter, QStringLiteral("🖼️ 图片加载中…"));
         }
@@ -200,23 +200,16 @@ void BubbleWidget::paintEvent(QPaintEvent*) {
         int replyH = hasReply() ? kReplyBlockH : 0;
         int bubbleH = textBounds.height() + 2 * kVPad + replyH;
         int bx = own ? avatarX - kGap - bubbleW : avatarX + kAvatarSize + kGap;
-        QPainterPath bubblePath;
-        bubblePath.addRoundedRect(QRectF(bx, yTop, bubbleW, bubbleH), 8, 8);
-        p.fillPath(bubblePath, own ? QColor("#5865f2") : QColor("#383a40"));
-        if (!own) {
-            p.setPen(QPen(QColor("#45474f")));
-            p.drawPath(bubblePath);
-        }
         int innerTop = yTop;
         if (hasReply()) {
             // 引用块
             QRect qrect(bx + kHPad, yTop + kVPad, bubbleW - 2 * kHPad, kReplyBlockH - 2 * kVPad);
             QPainterPath qpath;
             qpath.addRoundedRect(QRectF(qrect), 4, 4);
-            p.fillPath(qpath, own ? QColor("#ffffff22") : QColor("#00000022"));
+            p.fillPath(qpath, QColor("#2b2d31"));
             // 左侧色条
             p.fillRect(QRect(qrect.left(), qrect.top(), 3, qrect.height()),
-                       own ? QColor("#ffffff") : QColor("#5865f2"));
+                       QColor("#5865f2"));
             QFont qf = font();
             qf.setPointSizeF(qf.pointSizeF() - 1.0);
             QFontMetrics qfm(qf);
@@ -234,7 +227,7 @@ void BubbleWidget::paintEvent(QPaintEvent*) {
         QFont tf = font();
         tf.setPointSizeF(tf.pointSizeF() - 0.5);
         p.setFont(tf);
-        p.setPen(QColor("#f2f3f5"));
+             p.setPen(QColor("#dbdee1"));
         p.drawText(QRect(bx + kHPad, innerTop, kMaxBubbleWidth - 2 * kHPad, 200000),
                    Qt::TextWordWrap, text);
     }
@@ -257,11 +250,9 @@ void BubbleWidget::paintFileCard(QPainter& p, int x, int y, int w, int h) const 
     bool own = own_;
     QPainterPath card;
     card.addRoundedRect(QRectF(x, y, w, h), 8, 8);
-    p.fillPath(card, own ? QColor("#4752c4") : QColor("#383a40"));
-    if (!own) {
-        p.setPen(QPen(QColor("#45474f")));
-        p.drawPath(card);
-    }
+    p.fillPath(card, QColor("#2b2d31"));
+    p.setPen(QPen(QColor("#404249")));
+    p.drawPath(card);
 
     // 文件图标
     QFont iconFont = font();
@@ -275,7 +266,7 @@ void BubbleWidget::paintFileCard(QPainter& p, int x, int y, int w, int h) const 
     nf.setBold(true);
     QFontMetrics nfm(nf);
     p.setFont(nf);
-    p.setPen(QColor("#f2f3f5"));
+    p.setPen(QColor("#dbdee1"));
     QString name = fileName_.isEmpty() ? QStringLiteral("文件") : fileName_;
     p.drawText(QRect(x + 52, y + 8, w - 64, nfm.height()), Qt::AlignLeft | Qt::AlignVCenter,
                nfm.elidedText(name, Qt::ElideRight, w - 64));
