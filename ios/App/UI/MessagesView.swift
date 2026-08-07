@@ -14,7 +14,7 @@ struct MessagesView: View {
                 } else {
                     List(core.sessions, id: \.targetId) { session in
                         NavigationLink(value: session) {
-                            SessionRow(session: session)
+                            SessionRow(core: core, session: session)
                         }
                         .listRowBackground(DTheme.bg2)
                         .listRowSeparator(.hidden)
@@ -49,11 +49,13 @@ struct MessagesView: View {
 }
 
 struct SessionRow: View {
+    @ObservedObject var core: IMCore
     let session: ImSession
 
     var body: some View {
         HStack(spacing: 12) {
-            DiscordAvatar(name: session.title, size: 44)
+            DiscordAvatar(name: session.title, size: 44,
+                          uiImage: core.avatarImage(fileId: session.avatar))
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.title)
                     .font(.system(size: 16, weight: .semibold))

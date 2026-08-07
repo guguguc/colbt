@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Discord 色板
 enum DTheme {
@@ -132,6 +133,7 @@ struct DiscordAvatar: View {
     let name: String
     var size: CGFloat = 40
     var online: Bool?
+    var uiImage: UIImage?
 
     private static let palette: [UInt32] = [
         0x5865F2, 0xEB459E, 0xFAA61A, 0x57F287,
@@ -140,14 +142,22 @@ struct DiscordAvatar: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Circle()
-                .fill(backgroundColor)
-                .frame(width: size, height: size)
-                .overlay(
-                    Text(String(name.prefix(1)).uppercased())
-                        .font(.system(size: size * 0.45, weight: .semibold))
-                        .foregroundColor(.white)
-                )
+            if let uiImage {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else {
+                Circle()
+                    .fill(backgroundColor)
+                    .frame(width: size, height: size)
+                    .overlay(
+                        Text(String(name.prefix(1)).uppercased())
+                            .font(.system(size: size * 0.45, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+            }
             if let online {
                 Circle()
                     .fill(online ? DTheme.online : DTheme.textMuted)

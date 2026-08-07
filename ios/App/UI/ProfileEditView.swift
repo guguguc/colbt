@@ -18,7 +18,8 @@ struct ProfileEditView: View {
                 VStack(spacing: 16) {
                     // 当前头像预览
                     DiscordAvatar(name: nickname.isEmpty ? (core.me?.displayName ?? "?") : nickname,
-                                  size: 72)
+                                  size: 72,
+                                  uiImage: core.avatarImage(fileId: core.me?.avatar))
 
                     PhotosPicker(selection: $imageItem, matching: .images) {
                         HStack(spacing: 6) {

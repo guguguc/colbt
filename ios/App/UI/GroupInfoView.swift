@@ -25,7 +25,8 @@ struct GroupInfoView: View {
                 Section {
                     ForEach(members, id: \.user.id) { member in
                         HStack(spacing: 12) {
-                            DiscordAvatar(name: member.displayName, size: 36)
+                            DiscordAvatar(name: member.displayName, size: 36,
+                                          uiImage: core.avatarImage(fileId: member.user.avatar))
                             Text(member.displayName)
                                 .font(.system(size: 15))
                                 .foregroundColor(DTheme.textMain)

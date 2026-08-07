@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QFont>
+#include <QHash>
 #include <QPainter>
 #include <QPainterPath>
 #include <QFileInfo>
@@ -11,12 +12,32 @@ static const QColor kAvatarColors[] = {
     QColor("#78D3F8"), QColor("#9661BC"), QColor("#F6903D"), QColor("#008685"),
 };
 
+// fileId -> 已下载的头像（主线程维护）
+static QHash<QString, QPixmap> g_avatarCache;
+
+void setAvatarImage(const QString& fileId, const QPixmap& pix) {
+    if (!fileId.isEmpty() && !pix.isNull()) g_avatarCache.insert(fileId, pix);
+}
+
 QPixmap makeAvatar(const QString& name, const QString& avatarPath, int size) {
     QPixmap pix(size, size);
     pix.fill(Qt::transparent);
 
     QPainter painter(&pix);
     painter.setRenderHint(QPainter::Antialiasing);
+
+    // 已下载的头像（avatarPath 为 fileId）
+    auto it = g_avatarCache.constFind(avatarPath);
+    if (it != g_avatarCache.constEnd()) {
+        QPixmap src = it.value();
+        QPixmap scaled = src.scaled(size, size, Qt::KeepAspectRatioByExpanding,
+                                    Qt::SmoothTransformation);
+        QPainterPath path;
+        path.addEllipse(0, 0, size, size);
+        painter.setClipPath(path);
+        painter.drawPixmap(0, 0, size, size, scaled);
+        return pix;
+    }
 
     // 尝试加载本地图片
     if (!avatarPath.isEmpty() && QFileInfo::exists(avatarPath)) {

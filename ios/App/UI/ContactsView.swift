@@ -30,7 +30,7 @@ struct ContactsView: View {
                     }
                     ForEach(core.buddies, id: \.user.id) { buddy in
                         NavigationLink(value: buddy) {
-                            ContactRow(buddy: buddy)
+                            ContactRow(core: core, buddy: buddy)
                         }
                         .listRowBackground(DTheme.bg2)
                         .swipeActions {
@@ -120,11 +120,13 @@ struct ContactsView: View {
 }
 
 struct ContactRow: View {
+    @ObservedObject var core: IMCore
     let buddy: ImBuddy
 
     var body: some View {
         HStack(spacing: 12) {
-            DiscordAvatar(name: buddy.displayName, size: 40, online: buddy.isOnline)
+            DiscordAvatar(name: buddy.displayName, size: 40, online: buddy.isOnline,
+                          uiImage: core.avatarImage(fileId: buddy.user.avatar))
             Text(buddy.displayName)
                 .font(.system(size: 15))
                 .foregroundColor(buddy.isOnline ? DTheme.textMain : DTheme.textMuted)

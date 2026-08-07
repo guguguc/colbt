@@ -1,16 +1,20 @@
 package com.colbt.im.ui
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -48,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private var status by mutableStateOf("")
     private var typing by mutableStateOf(false)
     private var me by mutableStateOf<ImBuddy?>(null)
+    private var imageCache by mutableStateOf(mapOf<String, ByteArray>())
 
     private val listener = object : ImListenerAdapter() {
         override fun onLoginResult(code: Int, msg: String, me: ImBuddy) {
@@ -112,6 +118,9 @@ class MainActivity : ComponentActivity() {
         override fun onProfileChanged(userId: Long, nickname: String, avatar: String) {
             core.loadContacts()
         }
+        override fun onFileDownloaded(fileId: String, name: String, size: Long, mime: String, data: ByteArray) {
+            imageCache = imageCache + (fileId to data)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -131,6 +140,7 @@ class MainActivity : ComponentActivity() {
                     MainScreen(
                         sessions = sessions, buddies = buddies, groups = groups,
                         messages = messages, active = activeSession, typing = typing,
+                        avatarCache = imageCache,
                         onOpenSession = {
                             activeSession = it
                             messages = emptyList()
@@ -300,6 +310,7 @@ private fun MainScreen(
     messages: List<ImMessage>,
     active: ImSession?,
     typing: Boolean,
+    avatarCache: Map<String, ByteArray>,
     onOpenSession: (ImSession) -> Unit,
     onCloseSession: () -> Unit,
     onSend: (String) -> Unit,
@@ -332,7 +343,7 @@ private fun MainScreen(
                 if (tab == 0) {
                     LazyColumn(modifier = Modifier.weight(1f)) {
                         items(sessions, key = { it.targetId.toString() + it.targetType }) { s ->
-                            SessionRow(s, false) { onOpenSession(s) }
+                            SessionRow(s, false, avatarCache) { onOpenSession(s) }
                         }
                     }
                 } else {
@@ -348,13 +359,13 @@ private fun MainScreen(
                         }
                         item { Text("我的好友 (${buddies.size})", color = TextSub, modifier = Modifier.padding(12.dp)) }
                         items(buddies, key = { it.id }) { b ->
-                            ContactRow(b.nickname.ifEmpty { b.username }, b.online == 1) {
+                            ContactRow(b.nickname.ifEmpty { b.username }, b.online == 1, b.avatar, avatarCache) {
                                 onOpenSession(ImSession(b.id, 0, b.nickname.ifEmpty { b.username }, "", "", 0, 0))
                             }
                         }
                         item { Text("我的群组 (${groups.size})", color = TextSub, modifier = Modifier.padding(12.dp)) }
                         items(groups, key = { it.id }) { g ->
-                            ContactRow(g.name, true) {
+                            ContactRow(g.name, true, null, avatarCache) {
                                 onOpenSession(ImSession(g.id, 1, g.name, "", "", 0, 0))
                             }
                         }
@@ -423,7 +434,7 @@ private fun Tab(selected: Boolean, text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SessionRow(s: ImSession, selected: Boolean, onClick: () -> Unit) {
+private fun SessionRow(s: ImSession, selected: Boolean, cache: Map<String, ByteArray>, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -432,10 +443,7 @@ private fun SessionRow(s: ImSession, selected: Boolean, onClick: () -> Unit) {
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(Accent),
-            contentAlignment = Alignment.Center
-        ) { Text(s.title.firstOrNull()?.toString() ?: "?", color = Color.White) }
+        RowAvatar(s.title, s.avatar, 40, false, cache)
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(s.title, color = TextMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -456,17 +464,44 @@ private fun SessionRow(s: ImSession, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ContactRow(name: String, online: Boolean, onClick: () -> Unit) {
+private fun ContactRow(name: String, online: Boolean, avatar: String?, cache: Map<String, ByteArray>, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(17.dp)).background(Accent),
-            contentAlignment = Alignment.Center
-        ) { Text(name.firstOrNull()?.toString() ?: "?", color = Color.White, fontSize = 14.sp) }
+        RowAvatar(name, avatar, 34, online, cache)
         Spacer(Modifier.width(10.dp))
         Text(name, color = if (online) TextMain else TextSub)
+    }
+}
+
+@Composable
+private fun RowAvatar(name: String, fileId: String?, size: Int, online: Boolean, cache: Map<String, ByteArray>) {
+    val data = fileId?.let { cache[it] }
+    val bmp = remember(data) { data?.let { BitmapFactory.decodeByteArray(it, 0, it.size) } }
+    Box(modifier = Modifier.size(size.dp), contentAlignment = Alignment.Center) {
+        if (bmp != null) {
+            Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.size(size.dp).clip(CircleShape)
+            )
+        } else {
+            Box(
+                modifier = Modifier.size(size.dp).clip(CircleShape).background(Accent),
+                contentAlignment = Alignment.Center
+            ) { Text(name.firstOrNull()?.toString() ?: "?", color = Color.White, fontSize = (size * 0.42).sp) }
+        }
+        if (online) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size((size * 0.26).dp)
+                    .clip(CircleShape)
+                    .background(if (online) Color(0xFF23A559) else TextSub)
+                    .border(2.dp, Color(0xFF2B2D31), CircleShape)
+            )
+        }
     }
 }
 

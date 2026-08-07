@@ -231,6 +231,17 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
             [this](const QString& fileId, const QString& name, qint64 size, const QString& mime,
                    const QByteArray& data) {
                 chatPanel_->onFileDownloaded(fileId, name, size, mime, data);
+                // 头像图片：注册到缓存并刷新界面
+                if (mime.startsWith("image/") && !data.isEmpty()) {
+                    QPixmap pix;
+                    if (pix.loadFromData(data)) {
+                        setAvatarImage(fileId, pix);
+                        ctx_->loadContacts();
+                        ctx_->loadSessions();
+                        myAvatarLabel_->setPixmap(
+                            makeAvatar(ctx_->me().nickname, ctx_->me().avatar, 40));
+                    }
+                }
             });
 
     connect(ctx_, &AppContext::contactsReady, this, &MainWindow::onContactsReady);

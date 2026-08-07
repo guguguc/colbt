@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -55,6 +56,10 @@ public:
     // 服务器分配的用户ID（登录成功后填充）
     std::atomic<int64_t> myId{0};
 
+    // 已请求过下载的头像 fileId（去重）
+    std::mutex avatarMutex;
+    std::set<std::string> avatarRequests;
+
     bool start();
     void stop();
     void run();
@@ -62,6 +67,7 @@ public:
     bool sendPacket(const Packet& pkt);
     void handlePacket(const Packet& pkt);
     void requestDownload(const std::string& fileId);
+    void autoDownloadAvatar(const std::string& fileId);
     // 解析内容 "fileId|name|size|mime"
     bool parseFileContent(const std::string& content, std::string& fileId);
     void autoDownloadImages(const std::vector<MessageInfo>& msgs);

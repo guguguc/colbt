@@ -132,6 +132,12 @@ final class IMCore: NSObject, ObservableObject {
         bridge?.downloadFile(fileId)
     }
 
+    /// 按 fileId 取已下载的头像/图片（用于头像渲染）
+    func avatarImage(fileId: String?) -> UIImage? {
+        guard let fileId, let f = downloadedFiles[fileId] else { return nil }
+        return UIImage(data: f.data)
+    }
+
     /// 把已下载文件写入临时目录，供 ShareLink / 系统分享保存到"文件"
     func tempFileURL(for file: DownloadedFile) -> URL? {
         if let cached = tempFileURLs[file.fileId] { return cached }

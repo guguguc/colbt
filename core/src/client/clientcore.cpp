@@ -103,7 +103,10 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             std::string msg;
             UserInfo me;
             decodeLoginResp(pkt.body, code, msg, me);
-            if (code == 0) myId.store(me.id);
+            if (code == 0) {
+                myId.store(me.id);
+                autoDownloadAvatar(me.avatar);
+            }
             if (listener) listener->onLoginResult(code, msg, me);
             break;
         }
@@ -118,6 +121,9 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             std::vector<BuddyInfo> buddies;
             std::vector<GroupInfo> groups;
             decodeContactsResp(pkt.body, buddies, groups);
+            for (const auto& b : buddies) autoDownloadAvatar(b.user.avatar);
+            for (const auto& g : groups)
+                for (const auto& m : g.members) autoDownloadAvatar(m.user.avatar);
             if (listener) listener->onContactsLoaded(buddies, groups);
             break;
         }
@@ -203,7 +209,10 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             std::string msg;
             UserInfo me;
             decodeUpdateProfileResp(pkt.body, code, msg, me);
-            if (code == 0) myId.store(me.id);
+            if (code == 0) {
+                myId.store(me.id);
+                autoDownloadAvatar(me.avatar);
+            }
             if (listener) listener->onProfileUpdated(code, msg, me);
             break;
         }
@@ -211,6 +220,7 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             int64_t userId;
             std::string nickname, avatar;
             decodeProfileUpdatedPush(pkt.body, userId, nickname, avatar);
+            autoDownloadAvatar(avatar);
             if (listener) listener->onProfileChanged(userId, nickname, avatar);
             break;
         }
@@ -322,6 +332,7 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             int64_t groupId;
             std::vector<MemberInfo> members;
             decodeGroupMembersResp(pkt.body, groupId, members);
+            for (const auto& m : members) autoDownloadAvatar(m.user.avatar);
             if (listener) listener->onGroupMembersLoaded(groupId, members);
             break;
         }
@@ -552,6 +563,15 @@ void ClientCore::Impl::requestDownload(const std::string& fileId) {
     pkt.cmd = CMD_DOWNLOAD_FILE_REQ;
     pkt.body = w.data();
     sendPacket(pkt);
+}
+
+void ClientCore::Impl::autoDownloadAvatar(const std::string& fileId) {
+    if (fileId.empty()) return;
+    {
+        std::lock_guard<std::mutex> lock(avatarMutex);
+        if (!avatarRequests.insert(fileId).second) return; // 已请求过
+    }
+    requestDownload(fileId);
 }
 
 void ClientCore::Impl::autoDownloadImages(const std::vector<MessageInfo>& msgs) {
