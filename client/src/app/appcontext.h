@@ -99,6 +99,8 @@ public:
     const QtUser& me() const { return me_; }
     // 查询某用户的头像 fileId（联系人/群成员/资料变更时维护）
     QString avatarOf(qint64 userId) const { return avatarById_.value(userId); }
+    // 头像磁盘缓存目录（<AppDataLocation>/avatars），供启动时加载
+    QString avatarCacheDir() const;
 
 signals:
     void connectionChanged(bool connected);

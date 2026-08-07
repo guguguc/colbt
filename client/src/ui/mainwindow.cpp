@@ -2,6 +2,7 @@
 
 #include <QAbstractItemView>
 #include <QDialog>
+#include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -49,7 +50,16 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     myAvatarLabel_ = new QLabel(rail);
     myAvatarLabel_->setObjectName("myAvatar");
     myAvatarLabel_->setFixedSize(40, 40);
-    myAvatarLabel_->setPixmap(makeAvatar(ctx_->me().nickname, QString(), 40));
+    // 先加载磁盘头像缓存，保证重新登录后立刻显示真实头像
+    {
+        QDir dir(ctx_->avatarCacheDir());
+        const auto files = dir.entryList(QDir::Files);
+        for (const QString& f : files) {
+            QPixmap pix;
+            if (pix.load(dir.filePath(f))) setAvatarImage(f, pix);
+        }
+    }
+    myAvatarLabel_->setPixmap(makeAvatar(ctx_->me().nickname, ctx_->me().avatar, 40));
     railLayout->addWidget(myAvatarLabel_, 0, Qt::AlignHCenter);
 
     msgNav_ = new QToolButton(rail);

@@ -1,5 +1,8 @@
 #include "app/appcontext.h"
 
+#include <QDir>
+#include <QFile>
+#include <QStandardPaths>
 #include <QStringList>
 
 namespace {
@@ -257,10 +260,27 @@ void AppContext::onReadReceipt(int64_t peerId, int targetType) {
 void AppContext::onFileDownloaded(const std::string& fileId, const std::string& name,
                                   int64_t size, const std::string& mime,
                                   const std::vector<uint8_t>& data) {
+    if (mime.rfind("image/", 0) == 0 && !data.empty()) {
+        // 头像/图片：落盘，供下次启动直接加载
+        QDir dir(avatarCacheDir());
+        dir.mkpath(QStringLiteral("."));
+        QFile f(dir.filePath(QString::fromStdString(fileId)));
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(reinterpret_cast<const char*>(data.data()),
+                    static_cast<qint64>(data.size()));
+            f.close();
+        }
+    }
     emit fileDownloaded(QString::fromStdString(fileId), QString::fromStdString(name), size,
                         QString::fromStdString(mime),
                         QByteArray(reinterpret_cast<const char*>(data.data()),
                                    static_cast<int>(data.size())));
+}
+
+QString AppContext::avatarCacheDir() const {
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (dir.isEmpty()) dir = QDir::homePath() + QStringLiteral("/.colbt");
+    return dir + QStringLiteral("/avatars");
 }
 
 void AppContext::onPresenceChanged(int64_t userId, bool online) {
