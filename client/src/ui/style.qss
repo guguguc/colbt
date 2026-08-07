@@ -95,9 +95,8 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
     border-right: 1px solid #111214;
 }
 #myAvatar {
-    border: 2px solid #5865f2;
-    border-radius: 20px;
-    padding: 2px;
+    border: none;
+    padding: 0;
 }
 #navBtn {
     background: transparent;
