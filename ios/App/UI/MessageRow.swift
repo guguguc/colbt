@@ -13,8 +13,9 @@ struct MessageRow: View {
         HStack(alignment: .top, spacing: 12) {
             if message.isMine { Spacer(minLength: 56) }
 
-            if isGroupIncoming {
-                DiscordAvatar(name: message.senderName, size: 40)
+            if !message.isMine {
+                DiscordAvatar(name: message.senderName, size: 40,
+                              uiImage: core.avatarImage(fileId: core.avatarFileId(of: message.fromId)))
             }
 
             VStack(alignment: message.isMine ? .trailing : .leading, spacing: 4) {

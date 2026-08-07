@@ -36,6 +36,9 @@ final class IMCore: NSObject, ObservableObject {
     /// fileId -> 已下载的文件（手动下载或图片自动下载）
     @Published private(set) var downloadedFiles: [String: DownloadedFile] = [:]
 
+    /// userId -> 头像 fileId（联系人/群成员/资料变更时维护）
+    private(set) var avatarByUser: [Int64: String] = [:]
+
     private var tempFileURLs: [String: URL] = [:]
 
     private var bridge: ImClientBridge?
@@ -138,6 +141,11 @@ final class IMCore: NSObject, ObservableObject {
         return UIImage(data: f.data)
     }
 
+    /// 按 userId 查头像 fileId（消息气泡用）
+    func avatarFileId(of userId: Int64) -> String? {
+        avatarByUser[userId]
+    }
+
     /// 把已下载文件写入临时目录，供 ShareLink / 系统分享保存到"文件"
     func tempFileURL(for file: DownloadedFile) -> URL? {
         if let cached = tempFileURLs[file.fileId] { return cached }
@@ -214,6 +222,7 @@ extension IMCore: ImClientListener {
         if code == 0 {
             loggedIn = true
             self.me = me
+            avatarByUser[me.id] = me.avatar
             status = ""
             loadSessions()
             loadContacts()
@@ -229,6 +238,11 @@ extension IMCore: ImClientListener {
     func onContactsLoaded(_ buddies: [ImBuddy], groups: [ImGroup]) {
         self.buddies = buddies
         self.groups = groups
+        var m = avatarByUser
+        for b in buddies { m[b.user.id] = b.user.avatar }
+        for g in groups { for mem in g.members { m[mem.user.id] = mem.user.avatar } }
+        if let me { m[me.id] = me.avatar }
+        avatarByUser = m
     }
 
     func onSessionsLoaded(_ sessions: [ImSession]) {
@@ -350,6 +364,7 @@ extension IMCore: ImClientListener {
     func onProfileUpdated(_ code: Int32, message: String, me: ImUser) {
         if code == 0 {
             self.me = me
+            avatarByUser[me.id] = me.avatar
             status = "资料已更新"
         } else {
             status = message
@@ -357,6 +372,7 @@ extension IMCore: ImClientListener {
     }
 
     func onProfileChanged(_ userId: Int64, nickname: String, avatar: String) {
+        avatarByUser[userId] = avatar
         loadContacts()
     }
 
