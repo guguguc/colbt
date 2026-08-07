@@ -1,0 +1,76 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build iOS (core + app)
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install tools (cmake, xcodegen)
+        run: brew install cmake xcodegen
+
+      - name: Cross-compile C++ core for iOS
+        run: ./ios/build_core.sh
+
+      - name: Generate Xcode project
+        run: |
+          cd ios
+          xcodegen generate
+
+      - name: Build simulator app (no signing)
+        run: |
+          xcodebuild -project ios/Colbt.xcodeproj -scheme Colbt \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            IMCORE_LIB_PATH="$PWD/ios/build/lib/sim" \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath build/sim \
+            build
+
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Colbt-simulator
+          path: build/sim/Build/Products/Debug-iphonesimulator/Colbt.app
+
+      - name: Archive device build (unsigned)
+        run: |
+          xcodebuild -project ios/Colbt.xcodeproj -scheme Colbt \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            IMCORE_LIB_PATH="$PWD/ios/build/lib/dev" \
+            CODE_SIGNING_ALLOWED=NO \
+            -archivePath build/Colbt.xcarchive \
+            archive
+          mkdir -p build/ipa/Payload
+          cp -R build/Colbt.xcarchive/Products/Applications/Colbt.app build/ipa/Payload/
+          cd build/ipa && zip -qr ../Colbt-unsigned.ipa Payload
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Colbt-unsigned-ipa
+          path: build/Colbt-unsigned.ipa
+
+      - name: Summarize
+        run: |
+          echo "## 构建产物" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Colbt-simulator: 模拟器 .app，可直接拖入模拟器运行" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Colbt-unsigned-ipa: 真机未签名包，需签名后安装" >> "$GITHUB_STEP_SUMMARY"

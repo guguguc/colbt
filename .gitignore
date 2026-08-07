@@ -1,0 +1,28 @@
+# 构建产物
+build/
+build*/
+ios/build/
+ios/Colbt.xcodeproj/
+ios/App.xcodeproj/
+*.xcarchive
+*.ipa
+*.apk
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+
+# 数据库 / 日志（本地运行产生，不入库）
+*.db
+*.db-shm
+*.db-wal
+server.log
+
+# 服务器上传目录（本地测试文件，不入库）
+files/*
+
+# 系统
+.DS_Store
