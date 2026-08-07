@@ -55,7 +55,7 @@ void SessionItemWidget::paintEvent(QPaintEvent*) {
     p.setRenderHint(QPainter::Antialiasing);
 
     if (hovered_) {
-        p.fillRect(rect(), QColor("#35373c"));
+        p.fillRect(rect(), QColor("#2b2d31"));
     }
 
     // 头像
