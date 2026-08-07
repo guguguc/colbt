@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QVector>
@@ -96,6 +97,8 @@ public:
 
     qint64 myId() const { return myId_; }
     const QtUser& me() const { return me_; }
+    // 查询某用户的头像 fileId（联系人/群成员/资料变更时维护）
+    QString avatarOf(qint64 userId) const { return avatarById_.value(userId); }
 
 signals:
     void connectionChanged(bool connected);
@@ -158,6 +161,7 @@ private:
     std::unique_ptr<im::ClientCore> core_;
     qint64 myId_ = 0;
     QtUser me_;
+    QHash<qint64, QString> avatarById_;
 };
 
 // 类型转换

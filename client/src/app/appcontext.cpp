@@ -173,6 +173,7 @@ void AppContext::onLoginResult(int code, const std::string& msg, const im::UserI
     if (code == 0) {
         myId_ = me.id;
         me_ = convert(me);
+        avatarById_.insert(me.id, QString::fromStdString(me.avatar));
     }
     emit loginResult(code, QString::fromStdString(msg), convert(me));
 }
@@ -183,6 +184,11 @@ void AppContext::onRegisterResult(int code, const std::string& msg) {
 
 void AppContext::onContactsLoaded(const std::vector<im::BuddyInfo>& buddies,
                                   const std::vector<im::GroupInfo>& groups) {
+    for (const auto& b : buddies)
+        avatarById_.insert(b.user.id, QString::fromStdString(b.user.avatar));
+    for (const auto& g : groups)
+        for (const auto& m : g.members)
+            avatarById_.insert(m.user.id, QString::fromStdString(m.user.avatar));
     QVector<QtBuddy> qb;
     qb.reserve(static_cast<int>(buddies.size()));
     for (const auto& b : buddies) qb.append(toQtBuddy(b));
@@ -278,12 +284,16 @@ void AppContext::onError(int code, const std::string& msg) {
 }
 
 void AppContext::onProfileUpdated(int code, const std::string& msg, const im::UserInfo& me) {
-    if (code == 0) me_ = convert(me);
+    if (code == 0) {
+        me_ = convert(me);
+        avatarById_.insert(me.id, QString::fromStdString(me.avatar));
+    }
     emit profileUpdated(code, QString::fromStdString(msg), convert(me));
 }
 
 void AppContext::onProfileChanged(int64_t userId, const std::string& nickname,
                                   const std::string& avatar) {
+    avatarById_.insert(userId, QString::fromStdString(avatar));
     emit profileChanged(userId, QString::fromStdString(nickname),
                         QString::fromStdString(avatar));
 }

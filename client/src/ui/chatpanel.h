@@ -18,7 +18,7 @@ class ChatPanel : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ChatPanel(QWidget* parent = nullptr);
+    explicit ChatPanel(AppContext* ctx, QWidget* parent = nullptr);
 
     void setPeer(const QString& title, qint64 targetId, int targetType, bool isGroup);
     void setOnline(bool online);
@@ -69,6 +69,7 @@ private:
     qint64 targetId_ = -1;
     int targetType_ = 0;
     bool isGroup_ = false;
+    AppContext* ctx_ = nullptr;
 
     qint64 replyToId_ = 0;
 

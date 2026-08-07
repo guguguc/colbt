@@ -18,7 +18,7 @@
 
 #include "ui/bubblewidget.h"
 
-ChatPanel::ChatPanel(QWidget* parent) : QWidget(parent) {
+ChatPanel::ChatPanel(AppContext* ctx, QWidget* parent) : QWidget(parent), ctx_(ctx) {
     setObjectName("chatPanel");
 
     auto* root = new QVBoxLayout(this);
@@ -218,6 +218,12 @@ void ChatPanel::appendBubble(const QtMessage& msg, bool own) {
     bool showName = (targetType_ == 1 && !own);
     auto* bubble = new BubbleWidget(messageContainer_);
     bubble->setMessage(msg, own, showName);
+    // 发送者头像：自己/群成员/单聊对方
+    QString avatar;
+    if (own) avatar = ctx_ ? ctx_->avatarOf(ctx_->myId()) : QString();
+    else if (targetType_ == 1) avatar = ctx_ ? ctx_->avatarOf(msg.fromId) : QString();
+    else avatar = ctx_ ? ctx_->avatarOf(targetId_) : QString();
+    bubble->setAvatar(avatar);
     // 文件卡片点击下载
     connect(bubble, &BubbleWidget::requestDownload, this, [this](const QString& fileId) {
         pendingDownloads_.insert(fileId, QString());
@@ -267,6 +273,11 @@ void ChatPanel::onFileDownloaded(const QString& fileId, const QString& name, qin
         pendingDownloads_.remove(fileId);
         QString saveName = name.isEmpty() ? fileId : name;
         emit saveFileData(saveName, data);
+    }
+    // 头像图片：让所有气泡重绘（makeAvatar 走缓存渲染）
+    if (mime.startsWith("image/") && !data.isEmpty()) {
+        for (auto it = bubblesById_.constBegin(); it != bubblesById_.constEnd(); ++it)
+            it.value()->update();
     }
 }
 

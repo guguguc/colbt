@@ -46,6 +46,12 @@ void BubbleWidget::setMessage(const QtMessage& msg, bool own, bool showName) {
     update();
 }
 
+void BubbleWidget::setAvatar(const QString& fileId) {
+    if (avatarPath_ == fileId) return;
+    avatarPath_ = fileId;
+    update();
+}
+
 void BubbleWidget::parseContent() {
     fileId_.clear();
     fileName_.clear();

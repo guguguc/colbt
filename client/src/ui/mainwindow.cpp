@@ -140,7 +140,7 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     rootLayout->addWidget(listWrap);
 
     // ---- 聊天面板 ----
-    chatPanel_ = new ChatPanel(central);
+    chatPanel_ = new ChatPanel(ctx_, central);
     rootLayout->addWidget(chatPanel_, 1);
 
     setCentralWidget(central);

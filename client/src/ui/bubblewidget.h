@@ -14,6 +14,9 @@ public:
 
     void setMessage(const QtMessage& msg, bool own, bool showName);
 
+    // 设置发送者头像 fileId（渲染时经 makeAvatar 缓存解析）
+    void setAvatar(const QString& fileId);
+
     // 图片数据到达后设置，重算尺寸
     void setImageData(const QByteArray& data);
     // 更新已读状态（收到已读回执时调用）
