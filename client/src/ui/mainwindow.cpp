@@ -239,7 +239,6 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     connect(ctx_, &AppContext::fileDownloaded, this,
             [this](const QString& fileId, const QString& name, qint64 size, const QString& mime,
                    const QByteArray& data) {
-                chatPanel_->onFileDownloaded(fileId, name, size, mime, data);
                 // 头像图片：注册到缓存并刷新界面
                 if (mime.startsWith("image/") && !data.isEmpty()) {
                     QPixmap pix;
@@ -251,6 +250,8 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
                             makeAvatar(ctx_->me().nickname, ctx_->me().avatar, 40));
                     }
                 }
+                // 缓存完成后再让聊天气泡重绘，否则气泡会先画成默认头像
+                chatPanel_->onFileDownloaded(fileId, name, size, mime, data);
             });
 
     connect(ctx_, &AppContext::contactsReady, this, &MainWindow::onContactsReady);
