@@ -29,8 +29,14 @@ std::string lastSocketError() {
     char buf[256] = {0};
 #ifdef _WIN32
     return "socket error code " + std::to_string(WSAGetLastError());
+#elif defined(_GNU_SOURCE) && !defined(__APPLE__)
+    // GNU strerror_r：返回指向错误消息的指针
+    const char* msg = strerror_r(errno, buf, sizeof(buf));
+    return msg ? msg : buf;
 #else
-    return strerror_r(errno, buf, sizeof(buf)) == nullptr ? buf : strerror(errno);
+    // XSI strerror_r：成功返回 0，消息写入 buf
+    if (strerror_r(errno, buf, sizeof(buf)) == 0) return buf;
+    return "unknown error errno " + std::to_string(errno);
 #endif
 }
 
