@@ -10,62 +10,68 @@ struct MessageRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            if message.isMine { Spacer(minLength: 48) }
+        HStack(alignment: .top, spacing: 12) {
+            if message.isMine { Spacer(minLength: 56) }
 
             if isGroupIncoming {
-                VStack(alignment: .leading, spacing: 2) {
+                DiscordAvatar(name: message.senderName, size: 40)
+            }
+
+            VStack(alignment: message.isMine ? .trailing : .leading, spacing: 4) {
+                if isGroupIncoming {
                     Text(message.senderName)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    bubble
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(DTheme.accent)
                 }
-            } else {
                 bubble
             }
 
-            if !message.isMine { Spacer(minLength: 48) }
+            if !message.isMine { Spacer(minLength: 56) }
         }
         .frame(maxWidth: .infinity, alignment: message.isMine ? .trailing : .leading)
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
     }
 
     @ViewBuilder
     private var bubble: some View {
         VStack(alignment: .trailing, spacing: 3) {
             if message.replyToId != 0 && !message.replyContent.isEmpty {
-                Text(message.replyContent)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(message.isMine ? Color.white.opacity(0.15) : Color(.systemGray5))
-                    )
+                HStack(spacing: 4) {
+                    Rectangle()
+                        .fill(message.isMine ? Color.white.opacity(0.4) : DTheme.accent)
+                        .frame(width: 3)
+                        .cornerRadius(2)
+                    Text(message.replyContent)
+                        .font(.system(size: 11))
+                        .foregroundColor(message.isMine ? .white.opacity(0.85) : DTheme.textMuted)
+                        .lineLimit(1)
+                }
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(message.isMine ? Color.white.opacity(0.12) : DTheme.bg3)
+                )
             }
 
             content
+                .foregroundColor(.white)
 
             if message.isMine {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Text(message.read != 0 ? "已读" : "未读")
-                        .font(.caption2)
-                        .foregroundColor(message.read != 0 ? .green : .secondary)
+                        .font(.system(size: 10))
+                        .foregroundColor(message.read != 0 ? .white.opacity(0.8) : .white.opacity(0.55))
                     Text(timeString(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
                 }
-            } else if message.msgType == 0 {
-                Text(timeString(message.timestamp))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(message.isMine ? Color.blue : Color(.secondarySystemBackground))
+            RoundedRectangle(cornerRadius: 10)
+                .fill(message.isMine ? DTheme.accent : DTheme.bg4)
         )
         .frame(maxWidth: 300, alignment: message.isMine ? .trailing : .leading)
     }
@@ -81,25 +87,30 @@ struct MessageRow: View {
                     .frame(maxWidth: 220, maxHeight: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
-                HStack {
+                HStack(spacing: 8) {
                     ProgressView()
-                    Text("图片")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Text("图片加载中…")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.85))
                 }
-                .frame(minWidth: 80)
+                .frame(minWidth: 100)
             }
         case 2:
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "doc.fill")
-                Text(displayFileName)
-                    .font(.caption)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displayFileName)
+                        .font(.system(size: 13))
+                        .lineLimit(1)
+                    Text("点击查看")
+                        .font(.system(size: 10))
+                        .opacity(0.75)
+                }
             }
         case 3:
             Text(message.content)
-                .font(.footnote)
-                .foregroundColor(.secondary)
+                .font(.system(size: 13))
+                .opacity(0.9)
         default:
             Text(message.content)
         }

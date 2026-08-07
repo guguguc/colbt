@@ -22,44 +22,41 @@ struct GroupInfoView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("成员 (\(members.count))") {
+                Section {
                     ForEach(members, id: \.user.id) { member in
                         HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.gray.opacity(0.5))
-                                    .frame(width: 36, height: 36)
-                                Text(String(member.displayName.prefix(1)))
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                            }
+                            DiscordAvatar(name: member.displayName, size: 36)
                             Text(member.displayName)
+                                .font(.system(size: 15))
+                                .foregroundColor(DTheme.textMain)
                             if member.user.id == core.me?.id {
                                 Text("我")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(DTheme.textMuted)
                             }
                             if isOwner && member.user.id != core.me?.id {
                                 Spacer()
                                 Button {
                                     core.kickMember(groupId: groupId, memberId: member.user.id)
                                 } label: {
-                                    Text("踢出")
-                                        .font(.footnote)
-                                        .foregroundColor(.red)
+                                    Image(systemName: "person.crop.circle.badge.xmark")
+                                        .foregroundColor(DTheme.danger)
                                 }
                             }
                         }
+                        .listRowBackground(DTheme.bg2)
                     }
+                } header: {
+                    Text("成员 (\(members.count))").discordHeader()
                 }
 
                 Section {
-                    Button {
-                        showRename = true
-                    } label: {
+                    Button { showRename = true } label: {
                         Label("重命名群聊", systemImage: "pencil")
+                            .foregroundColor(DTheme.textMain)
                     }
                 }
+                .listRowBackground(DTheme.bg2)
 
                 Section {
                     Button(role: .destructive) {
@@ -68,7 +65,6 @@ struct GroupInfoView: View {
                     } label: {
                         Label("退出群聊", systemImage: "rectangle.portrait.and.arrow.right")
                     }
-
                     if isOwner {
                         Button(role: .destructive) {
                             confirmDismiss = true
@@ -77,12 +73,18 @@ struct GroupInfoView: View {
                         }
                     }
                 }
+                .listRowBackground(DTheme.bg2)
             }
+            .listStyle(.plain)
+            .discordList(DTheme.bg1)
             .navigationTitle(groupTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(DTheme.bg2, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { dismiss() }
+                        .foregroundColor(DTheme.textSub)
                 }
             }
             .sheet(isPresented: $showRename) {
@@ -96,6 +98,7 @@ struct GroupInfoView: View {
                 Button("取消", role: .cancel) {}
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -120,27 +123,30 @@ struct RenameGroupView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("群名称") {
-                    TextField("名称", text: $name)
+            VStack(spacing: 16) {
+                DiscordTextField(placeholder: "群聊名称", text: $name)
+                DiscordButton(title: "保存",
+                              disabled: name.trimmingCharacters(in: .whitespaces).isEmpty) {
+                    let trimmed = name.trimmingCharacters(in: .whitespaces)
+                    guard !trimmed.isEmpty else { return }
+                    core.renameGroup(groupId: groupId, name: trimmed)
+                    dismiss()
                 }
+                Spacer()
             }
+            .padding(24)
+            .background(DTheme.bg1.ignoresSafeArea())
             .navigationTitle("重命名群聊")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(DTheme.bg2, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        let trimmed = name.trimmingCharacters(in: .whitespaces)
-                        guard !trimmed.isEmpty else { return }
-                        core.renameGroup(groupId: groupId, name: trimmed)
-                        dismiss()
-                    }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .foregroundColor(DTheme.textSub)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 }

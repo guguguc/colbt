@@ -5,6 +5,8 @@ struct ColbtApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .preferredColorScheme(.dark)
+                .tint(DTheme.accent)
         }
     }
 }

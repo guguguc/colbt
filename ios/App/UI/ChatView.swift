@@ -20,7 +20,7 @@ struct ChatView: View {
                 List(core.messages, id: \.id) { message in
                     MessageRow(core: core, message: message)
                         .listRowSeparator(.hidden)
-                        .listRowBackground(Color(.systemGroupedBackground))
+                        .listRowBackground(Color.clear)
                         .id(message.id)
                         .contextMenu {
                             Button {
@@ -40,6 +40,7 @@ struct ChatView: View {
                         }
                 }
                 .listStyle(.plain)
+                .discordList(DTheme.bg3)
                 .onAppear {
                     core.openSession(targetId: session.targetId, targetType: targetType)
                 }
@@ -48,35 +49,32 @@ struct ChatView: View {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
-                .onChange(of: core.messages.last?.id) { _ in
-                    if let last = core.messages.last {
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                    }
-                }
             }
 
             if core.typing {
-                HStack {
+                HStack(spacing: 6) {
                     Text("对方正在输入…")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                        .foregroundColor(DTheme.textMuted)
                     Spacer()
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
             }
 
             if let reply = replyTarget {
-                HStack {
-                    Image(systemName: "quote.opening")
-                        .foregroundColor(.blue)
+                HStack(spacing: 8) {
+                    Rectangle()
+                        .fill(DTheme.accent)
+                        .frame(width: 3, height: 34)
+                        .cornerRadius(2)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("回复 \(reply.isMine ? "自己" : reply.senderName)")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(DTheme.accent)
                         Text(reply.content)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(DTheme.textMuted)
                             .lineLimit(1)
                     }
                     Spacer()
@@ -84,56 +82,63 @@ struct ChatView: View {
                         replyTarget = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                            .foregroundColor(DTheme.textMuted)
                     }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color(.secondarySystemBackground))
+                .background(DTheme.bg2)
             }
-
-            Divider()
 
             HStack(spacing: 8) {
                 PhotosPicker(selection: $imageItem, matching: .images) {
                     Image(systemName: "photo")
-                        .font(.title3)
-                        .foregroundColor(.blue)
+                        .font(.system(size: 18))
+                        .foregroundColor(DTheme.textSub)
                 }
                 Button {
                     showDocPicker = true
                 } label: {
                     Image(systemName: "paperclip")
-                        .font(.title3)
-                        .foregroundColor(.blue)
+                        .font(.system(size: 18))
+                        .foregroundColor(DTheme.textSub)
                 }
-                TextField("输入消息", text: $input, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...4)
+                TextField("发消息给 \(session.title)", text: $input, axis: .vertical)
+                    .font(.system(size: 15))
+                    .foregroundColor(DTheme.textMain)
+                    .lineLimit(1...5)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(DTheme.bg4)
+                    )
                     .onChange(of: input) { _ in
                         core.sendTyping(targetId: session.targetId, targetType: targetType)
                     }
-                Button("发送") {
-                    let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !text.isEmpty else { return }
-                    if let reply = replyTarget {
-                        core.sendReply(targetId: session.targetId,
-                                       targetType: targetType,
-                                       replyToId: reply.id,
-                                       text: text)
-                    } else {
-                        core.sendText(targetId: session.targetId, targetType: targetType, text: text)
-                    }
-                    input = ""
-                    replyTarget = nil
+                Button {
+                    send()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 34, height: 34)
+                        .background(
+                            Circle().fill(input.trimmingCharacters(in: .whitespaces).isEmpty
+                                          ? DTheme.bg4
+                                          : DTheme.accent)
+                        )
                 }
-                .buttonStyle(.borderedProminent)
                 .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .padding(8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(DTheme.bg3)
         }
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(DTheme.bg2, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             if session.targetType == 1 {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -142,6 +147,7 @@ struct ChatView: View {
                         showGroupInfo = true
                     } label: {
                         Image(systemName: "info.circle")
+                            .foregroundColor(DTheme.textSub)
                     }
                 }
             }
@@ -180,5 +186,20 @@ struct ChatView: View {
         .sheet(isPresented: $showGroupInfo) {
             GroupInfoView(core: core, groupId: session.targetId, groupTitle: session.title)
         }
+    }
+
+    private func send() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        if let reply = replyTarget {
+            core.sendReply(targetId: session.targetId,
+                           targetType: targetType,
+                           replyToId: reply.id,
+                           text: text)
+        } else {
+            core.sendText(targetId: session.targetId, targetType: targetType, text: text)
+        }
+        input = ""
+        replyTarget = nil
     }
 }

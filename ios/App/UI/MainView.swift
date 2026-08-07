@@ -13,5 +13,8 @@ struct MainView: View {
                 .tabItem { Label("好友", systemImage: "person.2") }
                 .tag(1)
         }
+        .toolbarBackground(DTheme.bg1, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .tint(DTheme.accent)
     }
 }

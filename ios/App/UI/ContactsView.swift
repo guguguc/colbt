@@ -10,24 +10,28 @@ struct ContactsView: View {
         NavigationStack {
             List {
                 Section {
-                    Button {
-                        showAddFriend = true
-                    } label: {
+                    Button { showAddFriend = true } label: {
                         Label("添加好友", systemImage: "person.badge.plus")
-                            .foregroundColor(.blue)
+                            .foregroundColor(DTheme.textMain)
+                    }
+                    Button { showCreateGroup = true } label: {
+                        Label("创建群聊", systemImage: "person.3")
+                            .foregroundColor(DTheme.textMain)
                     }
                 }
+                .listRowBackground(DTheme.bg2)
 
-                Section("我的好友 (\(core.buddies.count))") {
+                Section {
                     if core.buddies.isEmpty {
-                        Text("还没有好友，点击上方添加")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                        Text("还没有好友")
+                            .font(.system(size: 13))
+                            .foregroundColor(DTheme.textMuted)
                     }
                     ForEach(core.buddies, id: \.user.id) { buddy in
                         NavigationLink(value: buddy) {
                             ContactRow(buddy: buddy)
                         }
+                        .listRowBackground(DTheme.bg2)
                         .swipeActions {
                             Button(role: .destructive) {
                                 core.deleteFriend(friendId: buddy.user.id)
@@ -36,32 +40,30 @@ struct ContactsView: View {
                             }
                         }
                     }
+                } header: {
+                    Text("我的好友 (\(core.buddies.count))").discordHeader()
                 }
 
-                Section("我的群组 (\(core.groups.count))") {
+                Section {
                     if core.groups.isEmpty {
                         Text("还没有群聊")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 13))
+                            .foregroundColor(DTheme.textMuted)
                     }
                     ForEach(core.groups, id: \.id) { group in
                         NavigationLink(value: group) {
                             HStack(spacing: 12) {
-                                ZStack {
-                                    Circle().fill(Color.purple.opacity(0.85)).frame(width: 44, height: 44)
-                                    Text(String(group.name.prefix(1))).font(.headline).foregroundColor(.white)
-                                }
+                                DiscordAvatar(name: group.name, size: 40)
                                 Text(group.name)
+                                    .foregroundColor(DTheme.textMain)
                             }
-                            .padding(.vertical, 2)
                         }
+                        .listRowBackground(DTheme.bg2)
                         .swipeActions {
-                            Button {
-                                renameGroup = group
-                            } label: {
+                            Button { renameGroup = group } label: {
                                 Label("改名", systemImage: "pencil")
                             }
-                            .tint(.orange)
+                            .tint(DTheme.warn)
                             Button(role: .destructive) {
                                 core.leaveGroup(groupId: group.id)
                             } label: {
@@ -69,18 +71,15 @@ struct ContactsView: View {
                             }
                         }
                     }
-                }
-
-                Section {
-                    Button {
-                        showCreateGroup = true
-                    } label: {
-                        Label("创建群聊", systemImage: "person.3")
-                            .foregroundColor(.blue)
-                    }
+                } header: {
+                    Text("我的群组 (\(core.groups.count))").discordHeader()
                 }
             }
+            .listStyle(.plain)
+            .discordList(DTheme.bg1)
             .navigationTitle("好友")
+            .toolbarBackground(DTheme.bg2, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .sheet(isPresented: $showAddFriend) { AddFriendView(core: core) }
             .sheet(isPresented: $showCreateGroup) { CreateGroupView(core: core) }
             .sheet(item: $renameGroup) { group in
@@ -115,17 +114,11 @@ struct ContactRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(buddy.isOnline ? Color.green.opacity(0.85) : Color.gray.opacity(0.6))
-                    .frame(width: 40, height: 40)
-                Text(String(buddy.displayName.prefix(1)))
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-            }
+            DiscordAvatar(name: buddy.displayName, size: 40, online: buddy.isOnline)
             Text(buddy.displayName)
-                .foregroundColor(buddy.isOnline ? .primary : .secondary)
+                .font(.system(size: 15))
+                .foregroundColor(buddy.isOnline ? DTheme.textMain : DTheme.textMuted)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
     }
 }

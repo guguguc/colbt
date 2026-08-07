@@ -8,35 +8,38 @@ struct AddFriendView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("输入对方用户名") {
-                    TextField("用户名", text: $username)
-                        .autocapitalization(.none)
-                        .autocorrectionDisabled()
-                }
-                if !core.status.isEmpty {
-                    Section {
-                        Text(core.status)
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .navigationTitle("添加好友")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("添加") {
+            ZStack {
+                DTheme.bg1.ignoresSafeArea()
+                VStack(spacing: 16) {
+                    DiscordTextField(placeholder: "输入对方用户名", text: $username)
+                    DiscordButton(title: "添加好友",
+                                  disabled: username.trimmingCharacters(in: .whitespaces).isEmpty) {
                         let name = username.trimmingCharacters(in: .whitespaces)
                         guard !name.isEmpty else { return }
                         core.addFriend(username: name)
+                        dismiss()
                     }
-                    .disabled(username.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if !core.status.isEmpty {
+                        Text(core.status)
+                            .font(.system(size: 13))
+                            .foregroundColor(DTheme.textSub)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Spacer()
+                }
+                .padding(24)
+            }
+            .navigationTitle("添加好友")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(DTheme.bg2, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                        .foregroundColor(DTheme.textSub)
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 }

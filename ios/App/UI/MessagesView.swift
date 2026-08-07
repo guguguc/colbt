@@ -8,23 +8,36 @@ struct MessagesView: View {
         NavigationStack {
             Group {
                 if core.sessions.isEmpty {
-                    ContentUnavailableView("暂无会话", systemImage: "tray", description: Text("添加好友或开始聊天后会出现在这里"))
+                    ContentUnavailableView("暂无会话", systemImage: "tray",
+                                            description: Text("添加好友或开始聊天后会出现在这里"))
+                        .foregroundStyle(DTheme.textMuted)
                 } else {
                     List(core.sessions, id: \.targetId) { session in
                         NavigationLink(value: session) {
                             SessionRow(session: session)
                         }
+                        .listRowBackground(DTheme.bg2)
+                        .listRowSeparator(.hidden)
                     }
                     .listStyle(.plain)
+                    .discordList(DTheme.bg1)
                 }
             }
             .navigationTitle("消息")
+            .toolbarBackground(DTheme.bg2, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(role: .destructive) { core.logout() } label: { Text("退出") }
+                    Button(role: .destructive) { core.logout() } label: {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .foregroundColor(DTheme.textSub)
+                    }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showSearch = true } label: { Image(systemName: "magnifyingglass") }
+                    Button { showSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(DTheme.textSub)
+                    }
                 }
             }
             .sheet(isPresented: $showSearch) { SearchView(core: core) }
@@ -40,33 +53,40 @@ struct SessionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.blue.opacity(0.85))
-                    .frame(width: 44, height: 44)
-                Text(String(session.title.prefix(1)))
-                    .font(.headline)
-                    .foregroundColor(.white)
-            }
+            DiscordAvatar(name: session.title, size: 44)
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.title)
-                    .font(.body)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(DTheme.textMain)
                     .lineLimit(1)
                 Text(session.lastContent.isEmpty ? " " : session.lastContent)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundColor(DTheme.textMuted)
                     .lineLimit(1)
             }
             Spacer()
-            if session.unread > 0 {
-                Text(session.unread > 99 ? "99+" : "\(session.unread)")
-                    .font(.caption2)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.red))
+            VStack(alignment: .trailing, spacing: 4) {
+                if session.unread > 0 {
+                    Text(session.unread > 99 ? "99+" : "\(session.unread)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(DTheme.danger))
+                } else {
+                    Text(timeString(session.lastTime))
+                        .font(.system(size: 11))
+                        .foregroundColor(DTheme.textMuted)
+                }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+    }
+
+    private func timeString(_ ts: Int64) -> String {
+        guard ts > 0 else { return "" }
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: Date(timeIntervalSince1970: TimeInterval(ts)))
     }
 }

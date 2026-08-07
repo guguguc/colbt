@@ -3,7 +3,7 @@ import SwiftUI
 struct LoginView: View {
     @ObservedObject var core: IMCore
 
-    @State private var host = "127.0.0.1"
+    @State private var host = "192.168.1.4"
     @State private var port = "9000"
     @State private var username = ""
     @State private var password = ""
@@ -11,58 +11,84 @@ struct LoginView: View {
     @State private var registerMode = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("服务器") {
-                    TextField("IP / 域名", text: $host)
-                        .autocapitalization(.none)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField("端口", text: $port)
-                        .keyboardType(.numberPad)
-                }
+        ZStack {
+            DTheme.bg1.ignoresSafeArea()
 
-                Section(registerMode ? "注册" : "登录") {
-                    TextField("用户名", text: $username)
-                        .autocapitalization(.none)
-                        .autocorrectionDisabled()
-                    SecureField("密码", text: $password)
-                    if registerMode {
-                        TextField("昵称", text: $nickname)
-                    }
-                }
+            ScrollView {
+                VStack(spacing: 28) {
+                    Spacer().frame(height: 40)
 
-                Section {
-                    Button(registerMode ? "注 册" : "登 录") {
-                        core.start(host: host, port: Int(port) ?? 9000)
-                        let user = username.trimmingCharacters(in: .whitespaces)
-                        if registerMode {
-                            let nick = nickname.isEmpty ? "你" : nickname
-                            core.register(username: user, password: password, nickname: nick)
-                        } else {
-                            core.login(username: user, password: password)
+                    VStack(spacing: 6) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(DTheme.accent)
+                                .frame(width: 72, height: 72)
+                            Text("C")
+                                .font(.system(size: 40, weight: .bold))
+                                .foregroundColor(.white)
                         }
+                        Text("COLBT")
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundColor(DTheme.textMain)
+                            .tracking(5)
+                        Text("简单、高效的即时通讯")
+                            .font(.system(size: 13))
+                            .foregroundColor(DTheme.textMuted)
                     }
-                    .disabled(username.isEmpty || password.isEmpty)
-                    .frame(maxWidth: .infinity)
 
-                    Button(registerMode ? "已有账号？去登录" : "没有账号？立即注册") {
-                        registerMode.toggle()
-                    }
-                    .font(.footnote)
-                    .frame(maxWidth: .infinity)
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                    VStack(spacing: 10) {
+                        HStack(spacing: 8) {
+                            DiscordTextField(placeholder: "服务器 IP", text: $host)
+                            DiscordTextField(placeholder: "端口", text: $port)
+                                .frame(width: 96)
+                        }
 
-                if !core.status.isEmpty {
-                    Section {
-                        Text(core.status)
-                            .font(.footnote)
-                            .foregroundColor(core.connected || core.status.contains("成功") ? .secondary : .red)
+                        DiscordTextField(placeholder: registerMode ? "用户名（唯一）" : "用户名",
+                                         text: $username)
+                        DiscordTextField(placeholder: "密码", text: $password, isSecure: true)
+                        if registerMode {
+                            DiscordTextField(placeholder: "昵称", text: $nickname)
+                        }
+
+                        if !core.status.isEmpty {
+                            Text(core.status)
+                                .font(.system(size: 13))
+                                .foregroundColor(DTheme.danger)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 2)
+                        }
+
+                        DiscordButton(title: registerMode ? "注 册" : "登 录",
+                                      disabled: username.isEmpty || password.isEmpty) {
+                            core.start(host: host, port: Int(port) ?? 9000)
+                            let user = username.trimmingCharacters(in: .whitespaces)
+                            if registerMode {
+                                let nick = nickname.isEmpty ? "你" : nickname
+                                core.register(username: user, password: password, nickname: nick)
+                            } else {
+                                core.login(username: user, password: password)
+                            }
+                        }
+                        .padding(.top, 8)
+
+                        Button {
+                            registerMode.toggle()
+                        } label: {
+                            Text(registerMode ? "已有账号？去登录" : "没有账号？立即注册")
+                                .font(.system(size: 13))
+                                .foregroundColor(DTheme.textSub)
+                                .underline()
+                        }
+                        .padding(.top, 2)
                     }
+                    .padding(.horizontal, 24)
+
+                    Spacer().frame(height: 20)
                 }
+                .frame(maxWidth: 420)
+                .frame(maxWidth: .infinity)
             }
-            .navigationTitle("COLBT")
+            .scrollDismissesKeyboard(.interactively)
         }
     }
 }
