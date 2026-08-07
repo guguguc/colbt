@@ -72,6 +72,11 @@ private:
     AppContext* ctx_ = nullptr;
 
     qint64 replyToId_ = 0;
+    bool lastBubbleValid_ = false;
+    qint64 lastBubbleSenderId_ = 0;
+    qint64 lastBubbleTimestamp_ = 0;
+    bool lastBubbleOwn_ = false;
+    int lastBubbleType_ = 3;
 
     // fileId -> 图片气泡
     QHash<QString, BubbleWidget*> imageBubbles_;

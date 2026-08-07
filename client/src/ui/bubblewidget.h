@@ -16,6 +16,8 @@ public:
 
     // 设置发送者头像 fileId（渲染时经 makeAvatar 缓存解析）
     void setAvatar(const QString& fileId);
+    // 连续消息隐藏重复头像/昵称并压缩高度
+    void setCompact(bool compact);
 
     // 图片数据到达后设置，重算尺寸
     void setImageData(const QByteArray& data);
@@ -48,6 +50,7 @@ private:
     QtMessage msg_;
     bool own_ = false;
     bool showName_ = false;
+    bool compact_ = false;
     QSize size_;
     QString avatarPath_;
 

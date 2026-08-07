@@ -74,7 +74,7 @@ ChatPanel::ChatPanel(AppContext* ctx, QWidget* parent) : QWidget(parent), ctx_(c
     messageContainer_ = new QWidget(scrollArea_);
     messageLayout_ = new QVBoxLayout(messageContainer_);
     messageLayout_->setContentsMargins(12, 12, 12, 12);
-    messageLayout_->setSpacing(8);
+    messageLayout_->setSpacing(4);
     messageLayout_->addStretch();
     scrollArea_->setWidget(messageContainer_);
     root->addWidget(scrollArea_, 1);
@@ -243,6 +243,12 @@ void ChatPanel::appendBubble(const QtMessage& msg, bool own) {
     else if (targetType_ == 1) avatar = ctx_ ? ctx_->avatarOf(msg.fromId) : QString();
     else avatar = ctx_ ? ctx_->avatarOf(targetId_) : QString();
     bubble->setAvatar(avatar);
+    qint64 senderId = own ? (ctx_ ? ctx_->myId() : 0)
+                          : (targetType_ == 1 ? msg.fromId : targetId_);
+    bool compact = lastBubbleValid_ && msg.msgType == 0 && lastBubbleType_ == 0 &&
+                   own == lastBubbleOwn_ && senderId == lastBubbleSenderId_ &&
+                   qAbs(msg.timestamp - lastBubbleTimestamp_) <= 300;
+    bubble->setCompact(compact);
     // 文件卡片点击下载
     connect(bubble, &BubbleWidget::requestDownload, this, [this](const QString& fileId) {
         pendingDownloads_.insert(fileId, QString());
@@ -261,6 +267,11 @@ void ChatPanel::appendBubble(const QtMessage& msg, bool own) {
     }
     if (msg.id > 0) bubblesById_.insert(msg.id, bubble);
     messageLayout_->insertWidget(messageLayout_->count() - 1, bubble);
+    lastBubbleValid_ = true;
+    lastBubbleSenderId_ = senderId;
+    lastBubbleTimestamp_ = msg.timestamp;
+    lastBubbleOwn_ = own;
+    lastBubbleType_ = msg.msgType;
 }
 
 void ChatPanel::loadHistory(const QVector<QtMessage>& msgs) {
@@ -273,6 +284,7 @@ void ChatPanel::loadHistory(const QVector<QtMessage>& msgs) {
     imageBubbles_.clear();
     pendingDownloads_.clear();
     bubblesById_.clear();
+    lastBubbleValid_ = false;
     for (const auto& m : msgs) {
         bool own = m.direction == 0;
         appendBubble(m, own);
@@ -318,6 +330,7 @@ void ChatPanel::clearAll() {
     }
     messageLayout_->addStretch();
     inputEdit_->clear();
+    lastBubbleValid_ = false;
 }
 
 void ChatPanel::scrollToBottom() {

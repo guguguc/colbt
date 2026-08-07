@@ -52,6 +52,13 @@ void BubbleWidget::setAvatar(const QString& fileId) {
     update();
 }
 
+void BubbleWidget::setCompact(bool compact) {
+    if (compact_ == compact) return;
+    compact_ = compact;
+    computeSize();
+    update();
+}
+
 void BubbleWidget::parseContent() {
     fileId_.clear();
     fileName_.clear();
@@ -89,8 +96,9 @@ void BubbleWidget::computeSize() {
         return;
     }
 
-    int nameH = showName_ ? fm.height() + 4 : 0;
-    int readH = own_ ? fm.height() : 0;
+    int nameH = showName_ && !compact_ ? fm.height() + 4 : 0;
+    int readH = own_ && !compact_ ? fm.height() : 0;
+    int minContentH = compact_ ? 0 : kAvatarSize;
 
     if (msg_.msgType == 1) { // 图片
         int w = kMaxImageWidth;
@@ -106,11 +114,11 @@ void BubbleWidget::computeSize() {
                 h = ih;
             }
         }
-        size_ = QSize(w + kAvatarSize + 3 * kGap, qMax(h, kAvatarSize) + nameH + readH);
+        size_ = QSize(w + kAvatarSize + 3 * kGap, qMax(h, minContentH) + nameH + readH);
     } else if (msg_.msgType == 2) { // 文件卡片
         int w = 280;
         int h = 60;
-        size_ = QSize(w + kAvatarSize + 3 * kGap, qMax(h, kAvatarSize) + nameH + readH);
+        size_ = QSize(w + kAvatarSize + 3 * kGap, qMax(h, minContentH) + nameH + readH);
     } else { // 文本
         QString text = msg_.content;
         if (text.isEmpty()) text = QStringLiteral("…");
@@ -119,7 +127,7 @@ void BubbleWidget::computeSize() {
         int bubbleW = qMin(kMaxBubbleWidth, bounds.width() + 2 * kHPad);
         int replyH = hasReply() ? kReplyBlockH : 0;
         int bubbleH = bounds.height() + 2 * kVPad + replyH;
-        size_ = QSize(bubbleW + kAvatarSize + 3 * kGap, qMax(bubbleH, kAvatarSize) + nameH + readH);
+        size_ = QSize(bubbleW + kAvatarSize + 3 * kGap, qMax(bubbleH, minContentH) + nameH + readH);
     }
     setFixedSize(size_);
 }
@@ -138,7 +146,7 @@ void BubbleWidget::paintEvent(QPaintEvent*) {
     p.setRenderHint(QPainter::Antialiasing);
     QFontMetrics fm(font());
 
-    int nameH = showName_ ? fm.height() + 4 : 0;
+    int nameH = showName_ && !compact_ ? fm.height() + 4 : 0;
     int readH = own_ ? fm.height() : 0;
     int yTop = nameH;
 
@@ -156,8 +164,9 @@ void BubbleWidget::paintEvent(QPaintEvent*) {
     int avatarX = own ? width() - kAvatarSize - kGap : kGap;
     int avatarY = yTop + qMax(0, (size_.height() - nameH - readH - kAvatarSize) / 2);
 
-    // 头像
-    p.drawPixmap(avatarX, avatarY, makeAvatar(msg_.senderName, avatarPath_, kAvatarSize));
+    // 连续消息保留文字对齐位置，但隐藏重复头像
+    if (!compact_)
+        p.drawPixmap(avatarX, avatarY, makeAvatar(msg_.senderName, avatarPath_, kAvatarSize));
 
     int contentW = size_.width() - kAvatarSize - 3 * kGap;
     int bubbleX = own ? avatarX - kGap - contentW : avatarX + kAvatarSize + kGap;
@@ -233,7 +242,7 @@ void BubbleWidget::paintEvent(QPaintEvent*) {
     }
 
     // 己方消息：已读/未读
-    if (own_) {
+    if (own_ && !compact_) {
         QFont rf = font();
         rf.setPointSizeF(rf.pointSizeF() - 2.0);
         QFontMetrics rfm(rf);
