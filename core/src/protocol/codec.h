@@ -121,6 +121,20 @@ void encodeMarkReadReq(Writer& w, int64_t peerId, int targetType);
 void decodeMarkReadReq(const std::vector<uint8_t>& body, int64_t& peerId, int& targetType);
 void decodeReadPush(const std::vector<uint8_t>& body, int64_t& peerId, int& targetType);
 
+// 资料修改：nickname/avatar/newPassword 为空表示不修改；改密码需旧密码
+void encodeUpdateProfileReq(Writer& w, const std::string& nickname, const std::string& avatar,
+                            const std::string& oldPassword, const std::string& newPassword);
+void decodeUpdateProfileReq(const std::vector<uint8_t>& body, std::string& nickname,
+                            std::string& avatar, std::string& oldPassword,
+                            std::string& newPassword);
+void encodeUpdateProfileResp(Writer& w, int code, const std::string& msg, const UserInfo& me);
+void decodeUpdateProfileResp(const std::vector<uint8_t>& body, int& code, std::string& msg,
+                             UserInfo& me);
+void encodeProfileUpdatedPush(Writer& w, int64_t userId, const std::string& nickname,
+                              const std::string& avatar);
+void decodeProfileUpdatedPush(const std::vector<uint8_t>& body, int64_t& userId,
+                              std::string& nickname, std::string& avatar);
+
 // 文件上传/下载
 void encodeUploadFileReq(Writer& w, const std::string& name, int64_t size,
                          const std::string& mime, const std::vector<uint8_t>& data);

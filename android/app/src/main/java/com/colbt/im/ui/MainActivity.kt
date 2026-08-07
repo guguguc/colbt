@@ -1,8 +1,11 @@
 package com.colbt.im.ui
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,12 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.colbt.im.core.*
+import java.io.File
 
 // Discord 风格深色配色
 private val Bg1 = Color(0xFF1E1F22)
@@ -41,11 +47,13 @@ class MainActivity : ComponentActivity() {
     private var loggedIn by mutableStateOf(false)
     private var status by mutableStateOf("")
     private var typing by mutableStateOf(false)
+    private var me by mutableStateOf<ImBuddy?>(null)
 
     private val listener = object : ImListenerAdapter() {
         override fun onLoginResult(code: Int, msg: String, me: ImBuddy) {
             if (code == 0) {
                 loggedIn = true
+                this@MainActivity.me = me
                 core.loadSessions()
                 core.loadContacts()
             } else status = msg
@@ -95,6 +103,15 @@ class MainActivity : ComponentActivity() {
             core.loadContacts()
             core.loadSessions()
         }
+        override fun onProfileUpdated(code: Int, msg: String, me: ImBuddy) {
+            if (code == 0) {
+                this@MainActivity.me = me
+                status = "资料已更新"
+            } else status = msg
+        }
+        override fun onProfileChanged(userId: Long, nickname: String, avatar: String) {
+            core.loadContacts()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +119,7 @@ class MainActivity : ComponentActivity() {
         core = ImCore(listener)
         setContent {
             var addFriendDialog by remember { mutableStateOf(false) }
+            var profileDialog by remember { mutableStateOf(false) }
             MaterialTheme(
                 colorScheme = darkColorScheme(
                     primary = Accent, background = Bg3, surface = Bg2, onBackground = TextMain
@@ -132,6 +150,7 @@ class MainActivity : ComponentActivity() {
                             if (cur != null) core.sendTyping(cur.targetId, cur.targetType)
                         },
                         onAddFriend = { addFriendDialog = true },
+                        onProfile = { profileDialog = true },
                         onLogout = {
                             core.logout(); loggedIn = false
                         }
@@ -157,9 +176,73 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                if (profileDialog) {
+                    ProfileDialog(core, me?.nickname ?: "", status,
+                        onClose = { profileDialog = false })
+                }
             }
         }
     }
+}
+
+@Composable
+private fun ProfileDialog(core: ImCore, currentNickname: String, status: String, onClose: () -> Unit) {
+    val context = LocalContext.current
+    var nickname by remember { mutableStateOf(currentNickname) }
+    var oldPass by remember { mutableStateOf("") }
+    var newPass by remember { mutableStateOf("") }
+    var avatarPath by remember { mutableStateOf("") }
+    var err by remember { mutableStateOf("") }
+
+    val avatarLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val file = File(context.cacheDir, "avatar_${System.currentTimeMillis()}.img")
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    file.outputStream().use { input.copyTo(it) }
+                }
+                avatarPath = file.absolutePath
+            } catch (e: Exception) {
+                err = "读取头像失败"
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("个人资料") },
+        text = {
+            Column {
+                OutlinedTextField(nickname, { nickname = it },
+                    label = { Text("昵称（留空不修改）") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(oldPass, { oldPass = it },
+                    label = { Text("旧密码") }, singleLine = true,
+                    visualTransformation = PasswordVisualTransformation())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(newPass, { newPass = it },
+                    label = { Text("新密码（留空不修改）") }, singleLine = true,
+                    visualTransformation = PasswordVisualTransformation())
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { avatarLauncher.launch(arrayOf("image/*")) }) {
+                    Text(if (avatarPath.isNotEmpty()) "已选择头像，点击更换" else "选择头像图片")
+                }
+                if (err.isNotEmpty() || (status.isNotEmpty() && nickname.isEmpty())) {
+                    Text(err.ifEmpty { status }, color = Color(0xFFF23F42), fontSize = 13.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (newPass.isNotEmpty() && newPass.length < 4) { err = "新密码至少4位"; return@TextButton }
+                core.updateProfile(nickname.trim(), avatarPath, oldPass, newPass)
+                onClose()
+            }) { Text("保存") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("取消") } }
+    )
 }
 
 @Composable
@@ -222,6 +305,7 @@ private fun MainScreen(
     onSend: (String) -> Unit,
     onTyping: () -> Unit,
     onAddFriend: () -> Unit,
+    onProfile: () -> Unit,
     onLogout: () -> Unit,
 ) {
     var tab by remember { mutableStateOf(0) }
@@ -239,6 +323,7 @@ private fun MainScreen(
                 Tab(selected = tab == 0, text = "消息") { tab = 0 }
                 Tab(selected = tab == 1, text = "好友") { tab = 1 }
                 Spacer(Modifier.weight(1f))
+                Tab(selected = false, text = "资料", onClick = onProfile)
                 Tab(selected = false, text = "退出", onClick = onLogout)
                 Spacer(Modifier.height(12.dp))
             }

@@ -150,6 +150,17 @@ void AppContext::createGroup(const QString& name, const QVector<qint64>& memberI
 
 void AppContext::loadGroupMembers(qint64 groupId) { core_->loadGroupMembers(groupId); }
 
+void AppContext::updateProfile(const QString& nickname, const QString& avatarPath,
+                               const QString& oldPassword, const QString& newPassword) {
+    if (avatarPath.isEmpty())
+        core_->updateProfile(nickname.toStdString(), "", oldPassword.toStdString(),
+                             newPassword.toStdString());
+    else
+        core_->updateProfileWithAvatarUpload(avatarPath.toStdString(), nickname.toStdString(),
+                                             oldPassword.toStdString(),
+                                             newPassword.toStdString());
+}
+
 void AppContext::logout() { core_->logout(); }
 
 void AppContext::disconnectAll() { core_->stop(); }
@@ -264,4 +275,15 @@ void AppContext::onGroupMembersLoaded(int64_t groupId,
 
 void AppContext::onError(int code, const std::string& msg) {
     emit errorOccurred(code, QString::fromStdString(msg));
+}
+
+void AppContext::onProfileUpdated(int code, const std::string& msg, const im::UserInfo& me) {
+    if (code == 0) me_ = convert(me);
+    emit profileUpdated(code, QString::fromStdString(msg), convert(me));
+}
+
+void AppContext::onProfileChanged(int64_t userId, const std::string& nickname,
+                                  const std::string& avatar) {
+    emit profileChanged(userId, QString::fromStdString(nickname),
+                        QString::fromStdString(avatar));
 }

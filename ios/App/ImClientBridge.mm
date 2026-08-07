@@ -195,6 +195,19 @@ public:
         __weak id<ImClientListener> d = delegate_;
         dispatchToMain(^{ [d onError:code message:nsMsg]; });
     }
+    void onProfileUpdated(int code, const std::string &msg, const im::UserInfo &me) override {
+        ImUser *u = toImUser(me);
+        NSString *nsMsg = toNS(msg);
+        __weak id<ImClientListener> d = delegate_;
+        dispatchToMain(^{ [d onProfileUpdated:code message:nsMsg me:u]; });
+    }
+    void onProfileChanged(int64_t userId, const std::string &nickname,
+                          const std::string &avatar) override {
+        NSString *nsNick = toNS(nickname);
+        NSString *nsAvatar = toNS(avatar);
+        __weak id<ImClientListener> d = delegate_;
+        dispatchToMain(^{ [d onProfileChanged:userId nickname:nsNick avatar:nsAvatar]; });
+    }
 
 private:
     __weak id<ImClientListener> delegate_ = nil;
@@ -286,5 +299,15 @@ private:
     core_->createGroup(toStd(name), ids);
 }
 - (void)loadGroupMembers:(int64_t)groupId { if (core_) core_->loadGroupMembers(groupId); }
+
+- (void)updateProfile:(NSString *)nickname avatarPath:(NSString *)avatarPath oldPassword:(NSString *)oldPassword newPassword:(NSString *)newPassword {
+    if (!core_) return;
+    if (avatarPath.length == 0) {
+        core_->updateProfile(toStd(nickname), "", toStd(oldPassword), toStd(newPassword));
+    } else {
+        core_->updateProfileWithAvatarUpload(toStd(avatarPath), toStd(nickname),
+                                             toStd(oldPassword), toStd(newPassword));
+    }
+}
 
 @end

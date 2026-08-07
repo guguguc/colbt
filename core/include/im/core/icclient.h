@@ -37,6 +37,9 @@ public:
     virtual void onGroupMembersLoaded(int64_t groupId,
                                       const std::vector<MemberInfo>& members) = 0;
     virtual void onError(int code, const std::string& msg) = 0;
+    virtual void onProfileUpdated(int code, const std::string& msg, const UserInfo& me) = 0;
+    virtual void onProfileChanged(int64_t userId, const std::string& nickname,
+                                  const std::string& avatar) = 0;
 };
 
 // 客户端逻辑核心（纯C++，不依赖Qt）
@@ -82,6 +85,14 @@ public:
     void addFriend(const std::string& username, const std::string& remark);
     void createGroup(const std::string& name, const std::vector<int64_t>& memberIds);
     void loadGroupMembers(int64_t groupId);
+
+    // 修改资料：非空字段生效；改密码需 oldPassword
+    void updateProfile(const std::string& nickname, const std::string& avatar,
+                       const std::string& oldPassword, const std::string& newPassword);
+    // 修改资料并上传新头像：path 为空则只改昵称/密码
+    void updateProfileWithAvatarUpload(const std::string& path, const std::string& nickname,
+                                       const std::string& oldPassword,
+                                       const std::string& newPassword);
 
 public:
     struct Impl;

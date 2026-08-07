@@ -241,6 +241,9 @@ void ServerCore::Impl::handleMessage(Session* s, const Packet& pkt) {
         case CMD_TYPING_REQ:
             onTyping(s, pkt);
             break;
+        case CMD_UPDATE_PROFILE_REQ:
+            onUpdateProfile(s, pkt);
+            break;
         default:
             pushError(s, 1, "未知命令");
             break;
@@ -589,6 +592,80 @@ void ServerCore::Impl::onTyping(Session* s, const Packet& pkt) {
             if (member.user.id != uid) broadcastToUser(member.user.id, push);
     } else {
         broadcastToUser(targetId, push);
+    }
+}
+
+void ServerCore::Impl::onUpdateProfile(Session* s, const Packet& pkt) {
+    int64_t uid = s->userId();
+    std::string nickname, avatar, oldPassword, newPassword;
+    decodeUpdateProfileReq(pkt.body, nickname, avatar, oldPassword, newPassword);
+
+    Packet resp;
+    resp.cmd = CMD_UPDATE_PROFILE_RESP;
+    Writer w;
+
+    auto fail = [&](const std::string& msg) {
+        w.u8(1);
+        w.str(msg);
+        resp.body = w.data();
+        s->enqueue(resp);
+    };
+
+    if (!nickname.empty() && (nickname.size() > 32)) {
+        fail("昵称过长(≤32字符)");
+        return;
+    }
+    if (!avatar.empty() && avatar.size() > 128) {
+        fail("头像标识过长");
+        return;
+    }
+    if (!newPassword.empty() && newPassword.size() < 4) {
+        fail("新密码至少4位");
+        return;
+    }
+
+    std::string newPwdHash;
+    if (!newPassword.empty()) {
+        UserInfo cur;
+        std::string curHash;
+        if (!storage.findUserById(uid, cur) || !storage.findUserByName(cur.username, cur, curHash) ||
+            curHash != sha256Hex(oldPassword)) {
+            fail("旧密码错误");
+            return;
+        }
+        newPwdHash = sha256Hex(newPassword);
+    }
+
+    std::string err;
+    if (!storage.updateUser(uid, nickname, avatar, newPwdHash, err)) {
+        fail("保存失败: " + err);
+        return;
+    }
+
+    UserInfo me;
+    if (!storage.findUserById(uid, me)) {
+        fail("读取用户失败");
+        return;
+    }
+    me.online = 1;
+
+    w.u8(0);
+    w.str("ok");
+    writeUser(w, me);
+    resp.body = w.data();
+    s->enqueue(resp);
+    std::cout << "[server] 用户 " << uid << " 更新资料" << std::endl;
+
+    // 推送资料变更给在线好友 + 共同群成员（让客户端刷新列表/头像）
+    Packet push;
+    push.cmd = CMD_PROFILE_UPDATED_PUSH;
+    Writer wp;
+    encodeProfileUpdatedPush(wp, uid, me.nickname, me.avatar);
+    push.body = wp.data();
+    for (auto f : onlineFriendsOf(uid)) broadcastToUser(f, push);
+    for (const auto& g : storage.getGroups(uid)) {
+        for (const auto& m : g.members)
+            if (m.user.id != uid) broadcastToUser(m.user.id, push);
     }
 }
 

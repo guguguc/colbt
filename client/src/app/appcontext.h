@@ -89,6 +89,8 @@ public:
     void addFriend(const QString& username);
     void createGroup(const QString& name, const QVector<qint64>& memberIds);
     void loadGroupMembers(qint64 groupId);
+    void updateProfile(const QString& nickname, const QString& avatarPath,
+                       const QString& oldPassword, const QString& newPassword);
     void logout();
     void disconnectAll();
 
@@ -118,6 +120,8 @@ signals:
     void groupCreated(const QtGroup& group);
     void groupMembersReady(qint64 groupId, const QVector<QtMember>& members);
     void errorOccurred(int code, const QString& msg);
+    void profileUpdated(int code, const QString& msg, const QtUser& me);
+    void profileChanged(qint64 userId, const QString& nickname, const QString& avatar);
 
 private:
     // im::IClientListener 回调（逻辑层工作线程调用，信号经队列投递到UI线程）
@@ -147,6 +151,9 @@ private:
     void onGroupMembersLoaded(int64_t groupId,
                               const std::vector<im::MemberInfo>& members) override;
     void onError(int code, const std::string& msg) override;
+    void onProfileUpdated(int code, const std::string& msg, const im::UserInfo& me) override;
+    void onProfileChanged(int64_t userId, const std::string& nickname,
+                          const std::string& avatar) override;
 
     std::unique_ptr<im::ClientCore> core_;
     qint64 myId_ = 0;

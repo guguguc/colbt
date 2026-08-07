@@ -168,6 +168,15 @@ final class IMCore: NSObject, ObservableObject {
     func leaveGroup(groupId: Int64) { bridge?.leaveGroup(groupId) }
     func dismissGroup(groupId: Int64) { bridge?.dismissGroup(groupId) }
 
+    // MARK: - 资料
+
+    /// 修改昵称/头像/密码；avatarPath 为空则不改头像；newPassword 为空则不改密码
+    func updateProfile(nickname: String, avatarPath: String,
+                       oldPassword: String, newPassword: String) {
+        bridge?.updateProfile(nickname, avatarPath: avatarPath,
+                              oldPassword: oldPassword, newPassword: newPassword)
+    }
+
     // MARK: - 工具
 
     /// 保存下载的图片数据到临时目录，返回本地 URL
@@ -330,6 +339,19 @@ extension IMCore: ImClientListener {
 
     func onError(_ code: Int32, message: String) {
         status = message
+    }
+
+    func onProfileUpdated(_ code: Int32, message: String, me: ImUser) {
+        if code == 0 {
+            self.me = me
+            status = "资料已更新"
+        } else {
+            status = message
+        }
+    }
+
+    func onProfileChanged(_ userId: Int64, nickname: String, avatar: String) {
+        loadContacts()
     }
 
     // MARK: 私有

@@ -239,6 +239,21 @@ public:
         const auto& r = colbt::jni::JavaRefs::instance();
         e->CallVoidMethod(r.listener(), r.onError(), (jint)code, toJavaString(e, msg));
     }
+    void onProfileUpdated(int code, const std::string& msg, const UserInfo& me) override {
+        JNIEnv* e = env();
+        if (!e) return;
+        const auto& r = colbt::jni::JavaRefs::instance();
+        e->CallVoidMethod(r.listener(), r.onProfileUpdated(), (jint)code, toJavaString(e, msg),
+                          toJavaBuddyUser(e, me));
+    }
+    void onProfileChanged(int64_t userId, const std::string& nickname,
+                          const std::string& avatar) override {
+        JNIEnv* e = env();
+        if (!e) return;
+        const auto& r = colbt::jni::JavaRefs::instance();
+        e->CallVoidMethod(r.listener(), r.onProfileChanged(), (jlong)userId,
+                          toJavaString(e, nickname), toJavaString(e, avatar));
+    }
 };
 
 struct NativeClient {
@@ -414,4 +429,22 @@ extern "C" JNIEXPORT void JNICALL Java_com_colbt_im_core_NativeImClient_nativeDo
     const char* f = env->GetStringUTFChars(fileId, nullptr);
     nc->core.downloadFile(f);
     env->ReleaseStringUTFChars(fileId, f);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_colbt_im_core_NativeImClient_nativeUpdateProfile(
+    JNIEnv* env, jclass, jlong handle, jstring nickname, jstring avatarPath, jstring oldPass,
+    jstring newPass) {
+    NativeClient* nc = fromHandle(handle);
+    const char* n = env->GetStringUTFChars(nickname, nullptr);
+    const char* a = env->GetStringUTFChars(avatarPath, nullptr);
+    const char* o = env->GetStringUTFChars(oldPass, nullptr);
+    const char* np = env->GetStringUTFChars(newPass, nullptr);
+    if (std::string(a).empty())
+        nc->core.updateProfile(n, "", o, np);
+    else
+        nc->core.updateProfileWithAvatarUpload(a, n, o, np);
+    env->ReleaseStringUTFChars(nickname, n);
+    env->ReleaseStringUTFChars(avatarPath, a);
+    env->ReleaseStringUTFChars(oldPass, o);
+    env->ReleaseStringUTFChars(newPass, np);
 }

@@ -352,6 +352,53 @@ void decodeReadPush(const std::vector<uint8_t>& body, int64_t& peerId, int& targ
     targetType = r.u8();
 }
 
+void encodeUpdateProfileReq(Writer& w, const std::string& nickname, const std::string& avatar,
+                            const std::string& oldPassword, const std::string& newPassword) {
+    w.str(nickname);
+    w.str(avatar);
+    w.str(oldPassword);
+    w.str(newPassword);
+}
+
+void decodeUpdateProfileReq(const std::vector<uint8_t>& body, std::string& nickname,
+                            std::string& avatar, std::string& oldPassword,
+                            std::string& newPassword) {
+    Reader r(body);
+    nickname = r.str();
+    avatar = r.str();
+    oldPassword = r.str();
+    newPassword = r.str();
+}
+
+void encodeUpdateProfileResp(Writer& w, int code, const std::string& msg, const UserInfo& me) {
+    w.u8(static_cast<uint8_t>(code));
+    w.str(msg);
+    writeUser(w, me);
+}
+
+void decodeUpdateProfileResp(const std::vector<uint8_t>& body, int& code, std::string& msg,
+                             UserInfo& me) {
+    Reader r(body);
+    code = r.u8();
+    msg = r.str();
+    if (code == 0) me = readUser(r); // 失败时服务器只回 code+msg
+}
+
+void encodeProfileUpdatedPush(Writer& w, int64_t userId, const std::string& nickname,
+                              const std::string& avatar) {
+    w.i64(userId);
+    w.str(nickname);
+    w.str(avatar);
+}
+
+void decodeProfileUpdatedPush(const std::vector<uint8_t>& body, int64_t& userId,
+                              std::string& nickname, std::string& avatar) {
+    Reader r(body);
+    userId = r.i64();
+    nickname = r.str();
+    avatar = r.str();
+}
+
 void encodeUploadFileReq(Writer& w, const std::string& name, int64_t size,
                          const std::string& mime, const std::vector<uint8_t>& data) {
     w.str(name);

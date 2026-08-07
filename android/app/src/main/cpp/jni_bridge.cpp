@@ -99,6 +99,10 @@ void JavaRefs::init(JNIEnv* env, jobject listener) {
     onGroupMembersLoaded_ = getMid(env, listenerCls, "onGroupMembersLoaded",
         "(JLjava/util/List;)V");
     onError_ = getMid(env, listenerCls, "onError", "(ILjava/lang/String;)V");
+    onProfileUpdated_ = getMid(env, listenerCls, "onProfileUpdated",
+        "(ILjava/lang/String;Lcom/colbt/im/core/ImBuddy;)V");
+    onProfileChanged_ = getMid(env, listenerCls, "onProfileChanged",
+        "(JLjava/lang/String;Ljava/lang/String;)V");
 
     ready_ = true;
     env->ExceptionClear();

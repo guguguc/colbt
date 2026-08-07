@@ -4,9 +4,11 @@
 #include <QDialog>
 #include <QFile>
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
@@ -68,6 +70,13 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     railLayout->addWidget(contactNav_);
 
     railLayout->addStretch();
+
+    profileBtn_ = new QToolButton(rail);
+    profileBtn_->setText(QStringLiteral("资料"));
+    profileBtn_->setObjectName("navBtn");
+    profileBtn_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    profileBtn_->setCursor(Qt::PointingHandCursor);
+    railLayout->addWidget(profileBtn_);
 
     auto* logoutBtn = new QToolButton(rail);
     logoutBtn->setText(QStringLiteral("退出"));
@@ -140,6 +149,7 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     connect(msgNav_, &QToolButton::clicked, this, &MainWindow::showSessionsView);
     connect(contactNav_, &QToolButton::clicked, this, &MainWindow::showContactsView);
     connect(logoutBtn, &QToolButton::clicked, this, &MainWindow::onLogout);
+    connect(profileBtn_, &QToolButton::clicked, this, &MainWindow::onProfileClicked);
 
     connect(sessionList_, &SessionListWidget::sessionClicked, this, &MainWindow::onSessionClicked);
     connect(contactList_, &ContactListWidget::openChatRequested, this, &MainWindow::onOpenChat);
@@ -239,6 +249,8 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     connect(ctx_, &AppContext::groupCreated, this, &MainWindow::onGroupCreated);
     connect(ctx_, &AppContext::groupMembersReady, this, &MainWindow::onGroupMembersReady);
     connect(ctx_, &AppContext::errorOccurred, this, &MainWindow::onError);
+    connect(ctx_, &AppContext::profileUpdated, this, &MainWindow::onProfileUpdated);
+    connect(ctx_, &AppContext::profileChanged, this, &MainWindow::onProfileChanged);
 
     // 加载初始数据
     ctx_->loadContacts();
@@ -588,6 +600,115 @@ void MainWindow::onGroupMembersReady(qint64 groupId, const QVector<QtMember>& me
 void MainWindow::onError(int code, const QString& msg) {
     Q_UNUSED(code)
     QMessageBox::warning(this, QStringLiteral("提示"), msg);
+}
+
+void MainWindow::onProfileClicked() {
+    QDialog dlg(this);
+    dlg.setWindowTitle(QStringLiteral("个人资料"));
+    dlg.setFixedWidth(360);
+
+    auto* form = new QFormLayout(&dlg);
+    form->setContentsMargins(20, 20, 20, 20);
+    form->setSpacing(12);
+
+    auto* avatarLabel = new QLabel(&dlg);
+    avatarLabel->setFixedSize(72, 72);
+    avatarLabel->setPixmap(makeAvatar(ctx_->me().nickname, ctx_->me().avatar, 72));
+    avatarLabel->setAlignment(Qt::AlignCenter);
+    form->addRow(QStringLiteral("头像"), avatarLabel);
+
+    auto* avatarPath = new QLineEdit(&dlg);
+    avatarPath->setPlaceholderText(QStringLiteral("（留空则不修改）选择图片文件"));
+    auto* pickAvatar = new QPushButton(QStringLiteral("选择…"), &dlg);
+    auto* avatarRow = new QHBoxLayout;
+    avatarRow->addWidget(avatarPath, 1);
+    avatarRow->addWidget(pickAvatar);
+    form->addRow(QStringLiteral("新头像"), avatarRow);
+
+    auto* nickEdit = new QLineEdit(ctx_->me().nickname, &dlg);
+    form->addRow(QStringLiteral("昵称"), nickEdit);
+
+    auto* oldPass = new QLineEdit(&dlg);
+    oldPass->setEchoMode(QLineEdit::Password);
+    oldPass->setPlaceholderText(QStringLiteral("改密码时需要"));
+    form->addRow(QStringLiteral("旧密码"), oldPass);
+
+    auto* newPass = new QLineEdit(&dlg);
+    newPass->setEchoMode(QLineEdit::Password);
+    newPass->setPlaceholderText(QStringLiteral("留空则不修改"));
+    form->addRow(QStringLiteral("新密码"), newPass);
+
+    auto* statusLabel = new QLabel(&dlg);
+    statusLabel->setWordWrap(true);
+    form->addRow(QString(), statusLabel);
+
+    auto* btnRow = new QHBoxLayout;
+    auto* cancelBtn = new QPushButton(QStringLiteral("取消"), &dlg);
+    auto* saveBtn = new QPushButton(QStringLiteral("保存"), &dlg);
+    saveBtn->setObjectName("primaryBtn");
+    btnRow->addStretch();
+    btnRow->addWidget(cancelBtn);
+    btnRow->addWidget(saveBtn);
+    form->addRow(btnRow);
+
+    connect(pickAvatar, &QPushButton::clicked, &dlg, [avatarPath] {
+        QString f = QFileDialog::getOpenFileName(avatarPath, QStringLiteral("选择头像"),
+                                                 QString(), QStringLiteral("图片 (*.png *.jpg *.jpeg *.gif *.webp *.bmp)"));
+        if (!f.isEmpty()) avatarPath->setText(f);
+    });
+
+    connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+    connect(saveBtn, &QPushButton::clicked, &dlg, [&] {
+        const QString nick = nickEdit->text().trimmed();
+        const QString avatar = avatarPath->text().trimmed();
+        const QString oldP = oldPass->text();
+        const QString newP = newPass->text();
+        if (!newP.isEmpty() && newP.size() < 4) {
+            statusLabel->setText(QStringLiteral("新密码至少4位"));
+            return;
+        }
+        if (newP.isEmpty() && (nick.isEmpty() || nick == ctx_->me().nickname) && avatar.isEmpty()) {
+            statusLabel->setText(QStringLiteral("没有要修改的内容"));
+            return;
+        }
+        // 昵称留空 = 不修改；头像/密码同理
+        ctx_->updateProfile(nick, avatar, oldP, newP);
+        statusLabel->setText(QStringLiteral("保存中…"));
+        saveBtn->setEnabled(false);
+    });
+
+    // 保存成功后自动关闭（通过 profileUpdatedSignal 连接）
+    connect(this, &MainWindow::profileUpdatedSignal, &dlg,
+            [&](int code, const QString& msg, const QtUser&) {
+                if (code == 0) {
+                    dlg.accept();
+                } else {
+                    statusLabel->setText(msg);
+                    saveBtn->setEnabled(true);
+                }
+            });
+
+    dlg.exec();
+
+    // 更新左侧头像
+    myAvatarLabel_->setPixmap(makeAvatar(ctx_->me().nickname, ctx_->me().avatar, 40));
+}
+
+void MainWindow::onProfileUpdated(int code, const QString& msg, const QtUser& me) {
+    Q_UNUSED(me)
+    if (code == 0) {
+        myAvatarLabel_->setPixmap(makeAvatar(ctx_->me().nickname, ctx_->me().avatar, 40));
+        ctx_->loadContacts();
+    }
+    emit profileUpdatedSignal(code, msg, me);
+}
+
+void MainWindow::onProfileChanged(qint64 userId, const QString& nickname,
+                                  const QString& avatar) {
+    Q_UNUSED(userId)
+    Q_UNUSED(nickname)
+    Q_UNUSED(avatar)
+    ctx_->loadContacts(); // 刷新好友列表显示新昵称
 }
 
 void MainWindow::refreshOnlineStatus() {

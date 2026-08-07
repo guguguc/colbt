@@ -77,6 +77,12 @@ class ImCore(private val listener: ImListener) {
         override fun onError(code: Int, msg: String) {
         main.post { listener.onError(code, msg) }
     }
+        override fun onProfileUpdated(code: Int, msg: String, me: ImBuddy) {
+        main.post { listener.onProfileUpdated(code, msg, me) }
+    }
+        override fun onProfileChanged(userId: Long, nickname: String, avatar: String) {
+        main.post { listener.onProfileChanged(userId, nickname, avatar) }
+    }
     }
 
     fun start(host: String, port: Int): Boolean {
@@ -130,6 +136,8 @@ class ImCore(private val listener: ImListener) {
     fun sendFile(targetId: Long, targetType: Int, path: String) =
         guard { NativeImClient.nativeSendFileMessage(it, targetId, targetType, 2, path) }
     fun downloadFile(fileId: String) = guard { NativeImClient.nativeDownloadFile(it, fileId) }
+    fun updateProfile(nickname: String, avatarPath: String, oldPass: String, newPass: String) =
+        guard { NativeImClient.nativeUpdateProfile(it, nickname, avatarPath, oldPass, newPass) }
 
     private inline fun guard(block: (Long) -> Unit) {
         if (handle != 0L) block(handle)

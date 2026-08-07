@@ -30,4 +30,6 @@ object NativeImClient {
     external fun nativeSendTyping(handle: Long, targetId: Long, targetType: Int)
     external fun nativeSendFileMessage(handle: Long, targetId: Long, targetType: Int, msgType: Int, path: String)
     external fun nativeDownloadFile(handle: Long, fileId: String)
+    external fun nativeUpdateProfile(handle: Long, nickname: String, avatarPath: String,
+                                     oldPass: String, newPass: String)
 }

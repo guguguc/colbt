@@ -196,6 +196,33 @@ bool Storage::findUserById(int64_t id, UserInfo& out) {
     return ok;
 }
 
+bool Storage::updateUser(int64_t id, const std::string& nickname, const std::string& avatar,
+                         const std::string& newPwdHash, std::string& err) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    // 动态拼接 SET：只更新非空字段
+    std::string sets;
+    std::vector<std::string> binds;
+    if (!nickname.empty()) { sets += "nickname=?, "; binds.push_back(nickname); }
+    if (!avatar.empty()) { sets += "avatar=?, "; binds.push_back(avatar); }
+    if (!newPwdHash.empty()) { sets += "pwd_hash=?, "; binds.push_back(newPwdHash); }
+    if (sets.empty()) return true; // 没有要更新的字段
+    sets.pop_back(); // 去掉末尾 ", "
+    sets.pop_back();
+    std::string sql = "UPDATE users SET " + sets + " WHERE id=?;";
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        err = sqlite3_errmsg(db_);
+        return false;
+    }
+    for (size_t i = 0; i < binds.size(); ++i)
+        sqlite3_bind_text(stmt, static_cast<int>(i + 1), binds[i].c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, static_cast<int>(binds.size() + 1), id);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    if (!ok) err = sqlite3_errmsg(db_);
+    return ok;
+}
+
 bool Storage::addFriend(int64_t userId, int64_t friendId, const std::string& remark) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;

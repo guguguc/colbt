@@ -71,6 +71,10 @@ enum Cmd : uint16_t {
     CMD_SEARCH_MSGS_RESP = 0x007A,
     CMD_TYPING_REQ = 0x007B,
     CMD_TYPING_PUSH = 0x007C,
+
+    CMD_UPDATE_PROFILE_REQ = 0x0080,  // 修改昵称/头像/密码
+    CMD_UPDATE_PROFILE_RESP = 0x0081,
+    CMD_PROFILE_UPDATED_PUSH = 0x0082, // 好友资料变更推送
 };
 
 struct Packet {

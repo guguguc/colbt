@@ -4,6 +4,7 @@ struct ContactsView: View {
     @ObservedObject var core: IMCore
     @State private var showAddFriend = false
     @State private var showCreateGroup = false
+    @State private var showProfile = false
     @State private var renameGroup: ImGroup?
 
     var body: some View {
@@ -80,6 +81,15 @@ struct ContactsView: View {
             .navigationTitle("好友")
             .toolbarBackground(DTheme.bg2, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showProfile = true } label: {
+                        Image(systemName: "person.crop.circle.badge.checkmark")
+                            .foregroundColor(DTheme.textSub)
+                    }
+                }
+            }
+            .sheet(isPresented: $showProfile) { ProfileEditView(core: core) }
             .sheet(isPresented: $showAddFriend) { AddFriendView(core: core) }
             .sheet(isPresented: $showCreateGroup) { CreateGroupView(core: core) }
             .sheet(item: $renameGroup) { group in

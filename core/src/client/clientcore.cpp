@@ -198,6 +198,22 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             if (listener) listener->onTyping(fromId, targetId, targetType);
             break;
         }
+        case CMD_UPDATE_PROFILE_RESP: {
+            int code;
+            std::string msg;
+            UserInfo me;
+            decodeUpdateProfileResp(pkt.body, code, msg, me);
+            if (code == 0) myId.store(me.id);
+            if (listener) listener->onProfileUpdated(code, msg, me);
+            break;
+        }
+        case CMD_PROFILE_UPDATED_PUSH: {
+            int64_t userId;
+            std::string nickname, avatar;
+            decodeProfileUpdatedPush(pkt.body, userId, nickname, avatar);
+            if (listener) listener->onProfileChanged(userId, nickname, avatar);
+            break;
+        }
         case CMD_MARK_READ_RESP: {
             int64_t peerId;
             int targetType;
@@ -216,6 +232,26 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             int code;
             std::string fileId;
             decodeUploadFileResp(pkt.body, code, fileId);
+            {
+                std::lock_guard<std::mutex> lock(profileMutex);
+                if (pendingProfile.waitingUpload) {
+                    PendingProfile pp = pendingProfile;
+                    pendingProfile = {};
+                    if (code != 0) {
+                        if (listener) listener->onError(code, "头像上传失败");
+                    } else {
+                        // 头像上传成功：补发资料更新请求
+                        Writer w;
+                        encodeUpdateProfileReq(w, pp.nickname, fileId, pp.oldPassword,
+                                               pp.newPassword);
+                        Packet p;
+                        p.cmd = CMD_UPDATE_PROFILE_REQ;
+                        p.body = w.data();
+                        sendPacket(p);
+                    }
+                    break;
+                }
+            }
             PendingUpload up;
             {
                 std::lock_guard<std::mutex> lock(uploadMutex);
@@ -591,6 +627,52 @@ void ClientCore::loadGroupMembers(int64_t groupId) {
     encodeGroupMembersReq(w, groupId);
     Packet pkt;
     pkt.cmd = CMD_GET_GROUP_MEMBERS_REQ;
+    pkt.body = w.data();
+    impl_->sendPacket(pkt);
+}
+
+void ClientCore::updateProfile(const std::string& nickname, const std::string& avatar,
+                               const std::string& oldPassword, const std::string& newPassword) {
+    {
+        std::lock_guard<std::mutex> lock(impl_->profileMutex);
+        impl_->pendingProfile = {};
+    }
+    Writer w;
+    encodeUpdateProfileReq(w, nickname, avatar, oldPassword, newPassword);
+    Packet pkt;
+    pkt.cmd = CMD_UPDATE_PROFILE_REQ;
+    pkt.body = w.data();
+    impl_->sendPacket(pkt);
+}
+
+void ClientCore::updateProfileWithAvatarUpload(const std::string& path,
+                                               const std::string& nickname,
+                                               const std::string& oldPassword,
+                                               const std::string& newPassword) {
+    if (path.empty()) {
+        updateProfile(nickname, "", oldPassword, newPassword);
+        return;
+    }
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs) {
+        if (impl_->listener) impl_->listener->onError(10, "无法读取头像文件: " + path);
+        return;
+    }
+    std::vector<uint8_t> data((std::istreambuf_iterator<char>(ifs)),
+                              std::istreambuf_iterator<char>());
+    if (data.empty() || data.size() > kMaxFileSize) {
+        if (impl_->listener) impl_->listener->onError(12, "头像文件为空或超过 32MB 限制");
+        return;
+    }
+    std::string name = "avatar_" + std::to_string(impl_->myId.load()) + ".img";
+    {
+        std::lock_guard<std::mutex> lock(impl_->profileMutex);
+        impl_->pendingProfile = {true, nickname, oldPassword, newPassword};
+    }
+    Writer w;
+    encodeUploadFileReq(w, name, static_cast<int64_t>(data.size()), "image/*", data);
+    Packet pkt;
+    pkt.cmd = CMD_UPLOAD_FILE_REQ;
     pkt.body = w.data();
     impl_->sendPacket(pkt);
 }

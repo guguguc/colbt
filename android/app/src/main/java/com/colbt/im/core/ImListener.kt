@@ -23,6 +23,8 @@ interface ImListener {
     fun onGroupCreated(group: ImGroup)
     fun onGroupMembersLoaded(groupId: Long, members: List<ImMember>)
     fun onError(code: Int, msg: String)
+    fun onProfileUpdated(code: Int, msg: String, me: ImBuddy)
+    fun onProfileChanged(userId: Long, nickname: String, avatar: String)
 }
 
 // 空实现基类，方便只关心部分回调
@@ -48,4 +50,6 @@ open class ImListenerAdapter : ImListener {
     override fun onGroupCreated(group: ImGroup) {}
     override fun onGroupMembersLoaded(groupId: Long, members: List<ImMember>) {}
     override fun onError(code: Int, msg: String) {}
+    override fun onProfileUpdated(code: Int, msg: String, me: ImBuddy) {}
+    override fun onProfileChanged(userId: Long, nickname: String, avatar: String) {}
 }

@@ -25,6 +25,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)onGroupCreated:(ImGroup *)group;
 - (void)onGroupMembersLoaded:(int64_t)groupId members:(NSArray<ImMember *> *)members;
 - (void)onError:(int)code message:(NSString *)message;
+- (void)onProfileUpdated:(int)code message:(NSString *)message me:(ImUser *)me;
+- (void)onProfileChanged:(int64_t)userId nickname:(NSString *)nickname avatar:(NSString *)avatar;
 @end
 
 @interface ImClientBridge : NSObject
@@ -55,6 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)downloadFile:(NSString *)fileId;
 - (void)createGroup:(NSString *)name memberIds:(NSArray<NSNumber *> *)memberIds;
 - (void)loadGroupMembers:(int64_t)groupId;
+- (void)updateProfile:(NSString *)nickname avatarPath:(NSString *)avatarPath oldPassword:(NSString *)oldPassword newPassword:(NSString *)newPassword;
 @end
 
 NS_ASSUME_NONNULL_END

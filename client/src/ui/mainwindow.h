@@ -29,6 +29,7 @@ private slots:
     void onSearchClicked();
     void onAddFriendClicked();
     void onCreateGroupClicked();
+    void onProfileClicked();
     void onLogout();
 
     // AppContext 信号
@@ -48,9 +49,12 @@ private slots:
     void onGroupCreated(const QtGroup& group);
     void onGroupMembersReady(qint64 groupId, const QVector<QtMember>& members);
     void onError(int code, const QString& msg);
+    void onProfileUpdated(int code, const QString& msg, const QtUser& me);
+    void onProfileChanged(qint64 userId, const QString& nickname, const QString& avatar);
 
 signals:
     void loggedOut();
+    void profileUpdatedSignal(int code, const QString& msg, const QtUser& me);
 
 private:
     QString titleFor(qint64 targetId, int targetType) const;
@@ -67,6 +71,7 @@ private:
     QStackedWidget* listStack_;
     QToolButton* msgNav_;
     QToolButton* contactNav_;
+    QToolButton* profileBtn_;
     QLabel* myAvatarLabel_;
     QLabel* titleLabel_;
     QWidget* contactToolbar_;

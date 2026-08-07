@@ -29,6 +29,9 @@ public:
     // 通过用户名查找（含密码hash）；不存在返回 false
     bool findUserByName(const std::string& username, UserInfo& out, std::string& pwdHash);
     bool findUserById(int64_t id, UserInfo& out);
+    // 修改资料：非空字段才会更新（newPwdHash 为空则不改密码）
+    bool updateUser(int64_t id, const std::string& nickname, const std::string& avatar,
+                    const std::string& newPwdHash, std::string& err);
 
     // 好友
     bool addFriend(int64_t userId, int64_t friendId, const std::string& remark);

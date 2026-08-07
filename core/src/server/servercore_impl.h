@@ -100,6 +100,7 @@ public:
     void onRenameGroup(Session* s, const Packet& pkt);
     void onSearchMsgs(Session* s, const Packet& pkt);
     void onTyping(Session* s, const Packet& pkt);
+    void onUpdateProfile(Session* s, const Packet& pkt);
 
     // 文件存储目录（<db目录>/files）
     std::string fileDir;

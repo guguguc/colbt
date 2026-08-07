@@ -42,6 +42,16 @@ public:
     std::mutex uploadMutex;
     PendingUpload pendingUpload;
 
+    // 修改资料时若需上传头像：先传头像，成功后再发更新请求
+    struct PendingProfile {
+        bool waitingUpload = false;
+        std::string nickname;
+        std::string oldPassword;
+        std::string newPassword;
+    };
+    std::mutex profileMutex;
+    PendingProfile pendingProfile;
+
     // 服务器分配的用户ID（登录成功后填充）
     std::atomic<int64_t> myId{0};
 

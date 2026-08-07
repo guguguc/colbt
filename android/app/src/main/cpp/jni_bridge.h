@@ -60,6 +60,8 @@ public:
     jmethodID onGroupCreated() const { return onGroupCreated_; }
     jmethodID onGroupMembersLoaded() const { return onGroupMembersLoaded_; }
     jmethodID onError() const { return onError_; }
+    jmethodID onProfileUpdated() const { return onProfileUpdated_; }
+    jmethodID onProfileChanged() const { return onProfileChanged_; }
 
 private:
     JavaRefs() = default;
@@ -100,6 +102,8 @@ private:
     jmethodID onGroupCreated_ = nullptr;
     jmethodID onGroupMembersLoaded_ = nullptr;
     jmethodID onError_ = nullptr;
+    jmethodID onProfileUpdated_ = nullptr;
+    jmethodID onProfileChanged_ = nullptr;
 };
 
 // 便捷：把 im::UserInfo / BuddyInfo / GroupInfo / MessageInfo / SessionInfo / MemberInfo
