@@ -99,16 +99,25 @@ MainWindow::MainWindow(AppContext* ctx, QWidget* parent)
     titleLabel_->setObjectName("listTitle");
     titleLabel_->setFixedHeight(44);
     auto* titleRow = new QWidget(listWrap);
+    titleRow->setFixedHeight(48);
     auto* titleLayout = new QHBoxLayout(titleRow);
     titleLayout->setContentsMargins(0, 0, 0, 0);
     titleLayout->setSpacing(0);
-    titleLayout->addWidget(titleLabel_, 1);
+    conversationSearch_ = new QLineEdit(titleRow);
+    conversationSearch_->setObjectName("conversationSearch");
+    conversationSearch_->setPlaceholderText(QStringLiteral("寻找或开始新的对话"));
+    conversationSearch_->setClearButtonEnabled(true);
+    conversationSearch_->setFixedHeight(30);
+    conversationSearch_->setToolTip(QStringLiteral("回车搜索消息"));
+    titleLayout->addWidget(conversationSearch_, 1);
+    titleLabel_->hide();
     auto* searchBtn = new QToolButton(titleRow);
     searchBtn->setText(QStringLiteral("🔍"));
     searchBtn->setObjectName("emojiBtn");
     searchBtn->setToolTip(QStringLiteral("搜索消息"));
     searchBtn->setCursor(Qt::PointingHandCursor);
     connect(searchBtn, &QToolButton::clicked, this, &MainWindow::onSearchClicked);
+    connect(conversationSearch_, &QLineEdit::returnPressed, this, &MainWindow::onSearchClicked);
     titleLayout->addWidget(searchBtn);
     listLayout->addWidget(titleRow);
 
@@ -274,6 +283,8 @@ void MainWindow::showSessionsView() {
     msgNav_->setChecked(true);
     contactNav_->setChecked(false);
     titleLabel_->setText(QStringLiteral("消息"));
+    titleLabel_->hide();
+    conversationSearch_->show();
     contactToolbar_->hide();
     listStack_->setCurrentWidget(sessionList_);
 }
@@ -282,6 +293,8 @@ void MainWindow::showContactsView() {
     contactNav_->setChecked(true);
     msgNav_->setChecked(false);
     titleLabel_->setText(QStringLiteral("联系人"));
+    conversationSearch_->hide();
+    titleLabel_->show();
     contactToolbar_->show();
     listStack_->setCurrentWidget(contactList_);
 }

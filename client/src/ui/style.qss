@@ -125,6 +125,19 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
     padding-left: 14px;
     border-bottom: 1px solid #111214;
 }
+#conversationSearch {
+    background: #1e1f22;
+    color: #dbdee1;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+#conversationSearch:focus { background: #2b2d31; }
+#conversationSearch QAbstractItemView {
+    background: #1e1f22;
+    color: #dbdee1;
+}
 #contactToolbar { background: #111214; }
 #toolBtn {
     background: #2b2d31;
@@ -189,6 +202,15 @@ QMenu::item:selected { background: #5865f2; color: #ffffff; }
     font-size: 18px;
 }
 #infoBtn:hover, #emojiBtn:hover { background: #383a40; color: #ffffff; }
+#headerIconBtn {
+    background: transparent;
+    border: none;
+    color: #949ba4;
+    border-radius: 4px;
+    font-size: 17px;
+    padding: 5px 6px;
+}
+#headerIconBtn:disabled { color: #72767d; }
 
 #inputBox {
     background: #1e1f22;

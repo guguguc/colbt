@@ -10,6 +10,7 @@ class ContactListWidget;
 class ChatPanel;
 class QStackedWidget;
 class QLabel;
+class QLineEdit;
 class QToolButton;
 
 // 主窗口：左侧导航 + 会话/联系人 + 聊天面板
@@ -74,6 +75,7 @@ private:
     QToolButton* profileBtn_;
     QLabel* myAvatarLabel_;
     QLabel* titleLabel_;
+    QLineEdit* conversationSearch_;
     QWidget* contactToolbar_;
 
     QHash<qint64, QtBuddy> buddyById_;

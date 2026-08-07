@@ -36,14 +36,33 @@ ChatPanel::ChatPanel(AppContext* ctx, QWidget* parent) : QWidget(parent), ctx_(c
     statusLabel_ = new QLabel(header);
     statusLabel_->setObjectName("chatStatus");
     statusLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    auto addHeaderButton = [header](const QString& text, const QString& tip) {
+        auto* button = new QToolButton(header);
+        button->setText(text);
+        button->setObjectName("headerIconBtn");
+        button->setToolTip(tip);
+        button->setEnabled(false);
+        button->setCursor(Qt::PointingHandCursor);
+        return button;
+    };
+    auto* voiceBtn = addHeaderButton(QStringLiteral("☎"), QStringLiteral("语音通话"));
+    auto* videoBtn = addHeaderButton(QStringLiteral("▣"), QStringLiteral("视频通话"));
+    auto* pinBtn = addHeaderButton(QStringLiteral("⌖"), QStringLiteral("置顶"));
+    auto* memberBtn = addHeaderButton(QStringLiteral("♙"), QStringLiteral("成员"));
+    auto* searchBtn = addHeaderButton(QStringLiteral("⌕"), QStringLiteral("搜索"));
     auto* infoBtn = new QToolButton(header);
-    infoBtn->setText(QStringLiteral("···"));
+    infoBtn->setText(QStringLiteral("⋯"));
     infoBtn->setObjectName("infoBtn");
     infoBtn->setCursor(Qt::PointingHandCursor);
     connect(infoBtn, &QToolButton::clicked, this, &ChatPanel::onGroupInfoClicked);
     headerLayout->addWidget(titleLabel_);
     headerLayout->addStretch();
     headerLayout->addWidget(statusLabel_);
+    headerLayout->addWidget(voiceBtn);
+    headerLayout->addWidget(videoBtn);
+    headerLayout->addWidget(pinBtn);
+    headerLayout->addWidget(memberBtn);
+    headerLayout->addWidget(searchBtn);
     headerLayout->addWidget(infoBtn);
     root->addWidget(header);
 
