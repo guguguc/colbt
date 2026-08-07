@@ -114,18 +114,18 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
     border-left: 3px solid #5865f2;
 }
 #listWrap {
-    background: #1e1f22;
+    background: #111214;
     border-right: 1px solid #111214;
 }
 #listTitle {
-    background: #1e1f22;
-    color: #dbdee1;
+    background: #111214;
+    color: #b5bac1;
     font-size: 15px;
     font-weight: 600;
     padding-left: 14px;
     border-bottom: 1px solid #111214;
 }
-#contactToolbar { background: #1e1f22; }
+#contactToolbar { background: #111214; }
 #toolBtn {
     background: #2b2d31;
     color: #dbdee1;
@@ -138,16 +138,16 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 #toolBtn:pressed { background: #5865f2; }
 
 QListWidget {
-    background: #1e1f22;
-    color: #dbdee1;
+    background: #111214;
+    color: #b5bac1;
     border: none;
 }
 QListWidget::item { border: none; background: transparent; }
 QListWidget::item:selected { background: #2b2d31; }
 
 QTreeWidget {
-    background: #1e1f22;
-    color: #dbdee1;
+    background: #111214;
+    color: #b5bac1;
     border: none;
     padding: 8px 4px;
 }
@@ -158,7 +158,7 @@ QTreeWidget::item {
 }
 QTreeWidget::item:hover { background: #2b2d31; }
 QTreeWidget::item:selected { background: #313338; color: #ffffff; }
-QTreeWidget::branch { background: #1e1f22; }
+QTreeWidget::branch { background: #111214; }
 
 QMenu {
     background: #111214;
