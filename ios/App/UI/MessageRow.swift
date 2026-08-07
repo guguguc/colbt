@@ -96,17 +96,7 @@ struct MessageRow: View {
                 .frame(minWidth: 100)
             }
         case 2:
-            HStack(spacing: 8) {
-                Image(systemName: "doc.fill")
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(displayFileName)
-                        .font(.system(size: 13))
-                        .lineLimit(1)
-                    Text("点击查看")
-                        .font(.system(size: 10))
-                        .opacity(0.75)
-                }
-            }
+            fileBubble
         case 3:
             Text(message.content)
                 .font(.system(size: 13))
@@ -119,6 +109,66 @@ struct MessageRow: View {
     private var displayFileName: String {
         let parts = message.content.components(separatedBy: "|")
         return parts.count > 1 ? parts[1] : message.content
+    }
+
+    // MARK: 文件气泡（下载 + 保存到文件）
+
+    @ViewBuilder
+    private var fileBubble: some View {
+        let fileId = message.fileId ?? ""
+        let downloaded = fileId.isEmpty ? nil : core.downloadedFiles[fileId]
+
+        HStack(spacing: 10) {
+            Image(systemName: "doc.fill")
+                .font(.system(size: 20))
+                .foregroundColor(message.isMine ? .white : DTheme.accent)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(displayFileName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                if let d = downloaded {
+                    Text("\(byteString(d.size)) · 已下载")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.8))
+                } else {
+                    Text("点按下载")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            Spacer(minLength: 6)
+
+            if let d = downloaded {
+                if let url = core.tempFileURL(for: d) {
+                    ShareLink(item: url) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 18))
+                            .foregroundColor(message.isMine ? .white : DTheme.accent)
+                    }
+                } else {
+                    Image(systemName: "checkmark.circle")
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            } else if !fileId.isEmpty {
+                Button {
+                    core.downloadFile(fileId: fileId)
+                } label: {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 20))
+                        .foregroundColor(message.isMine ? .white : DTheme.accent)
+                }
+            }
+        }
+        .frame(minWidth: 170)
+    }
+
+    private func byteString(_ size: Int64) -> String {
+        if size >= 1024 * 1024 { return String(format: "%.1f MB", Double(size) / 1048576.0) }
+        if size >= 1024 { return String(format: "%.1f KB", Double(size) / 1024.0) }
+        return "\(size) B"
     }
 
     private func timeString(_ ts: Int64) -> String {

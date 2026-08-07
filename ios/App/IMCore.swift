@@ -2,6 +2,15 @@ import Foundation
 import Combine
 import UIKit
 
+/// 已下载的文件（含图片/普通文件），用于 UI 展示与保存
+struct DownloadedFile {
+    let fileId: String
+    let name: String
+    let size: Int64
+    let mime: String
+    let data: Data
+}
+
 /// 线程安全的 Swift 封装：C++ 回调由 ObjC 桥接层统一转发到主队列，UI 可直接使用。
 final class IMCore: NSObject, ObservableObject {
 
@@ -23,6 +32,11 @@ final class IMCore: NSObject, ObservableObject {
 
     /// fileId -> 已下载的图片数据（图片消息在加载历史/收到推送时自动下载）
     private(set) var imageCache: [String: Data] = [:]
+
+    /// fileId -> 已下载的文件（手动下载或图片自动下载）
+    @Published private(set) var downloadedFiles: [String: DownloadedFile] = [:]
+
+    private var tempFileURLs: [String: URL] = [:]
 
     private var bridge: ImClientBridge?
     private var typingTask: Task<Void, Never>?
@@ -110,6 +124,29 @@ final class IMCore: NSObject, ObservableObject {
 
     func searchMessages(keyword: String) {
         bridge?.searchMessages(keyword)
+    }
+
+    /// 下载文件（收到文件消息后调用；图片消息会自动下载）
+    func downloadFile(fileId: String) {
+        guard !fileId.isEmpty else { return }
+        bridge?.downloadFile(fileId)
+    }
+
+    /// 把已下载文件写入临时目录，供 ShareLink / 系统分享保存到"文件"
+    func tempFileURL(for file: DownloadedFile) -> URL? {
+        if let cached = tempFileURLs[file.fileId] { return cached }
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("colbt_files", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let safeName = file.name.isEmpty ? file.fileId : file.name
+        let url = dir.appendingPathComponent(safeName)
+        do {
+            try file.data.write(to: url)
+            tempFileURLs[file.fileId] = url
+            return url
+        } catch {
+            return nil
+        }
     }
 
     // MARK: - 好友 / 群
@@ -257,10 +294,15 @@ extension IMCore: ImClientListener {
     }
 
     func onFileDownloaded(_ fileId: String, name: String, size: Int64, mime: String, data: Data) {
-        if mime.hasPrefix("image/") || name.isEmpty == false {
+        // 图片消息：存入图片缓存用于气泡展示
+        if mime.hasPrefix("image/") {
             imageCache[fileId] = data
             refreshImages()
         }
+        // 所有下载都记录，供"保存到文件"使用
+        var d = downloadedFiles
+        d[fileId] = DownloadedFile(fileId: fileId, name: name, size: size, mime: mime, data: data)
+        downloadedFiles = d
     }
 
     func onPresenceChanged(_ userId: Int64, online: Bool) {
