@@ -292,6 +292,10 @@ void ClientCore::Impl::handlePacket(const Packet& pkt) {
             std::vector<uint8_t> data;
             decodeDownloadFileResp(pkt.body, code, fileId, name, size, mime, data);
             if (code != 0) {
+                {
+                    std::lock_guard<std::mutex> lock(avatarMutex);
+                    avatarRequests.erase(fileId);
+                }
                 if (listener) listener->onError(code, "文件下载失败");
                 break;
             }
@@ -371,6 +375,11 @@ void ClientCore::Impl::stop() {
 
 bool ClientCore::start(const std::string& host, uint16_t port, IClientListener* listener) {
     stop();
+    // 每次重新连接都允许重新下载头像；头像图片缓存由 UI 层维护，不能依赖旧连接的请求状态
+    {
+        std::lock_guard<std::mutex> lock(impl_->avatarMutex);
+        impl_->avatarRequests.clear();
+    }
     impl_->host = host;
     impl_->port = port;
     impl_->listener = listener;
