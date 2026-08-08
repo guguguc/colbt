@@ -10,15 +10,6 @@
 
 namespace im {
 
-// 正文字段类型标记（仅用于代码阅读/调试，实际按函数顺序直接读）
-namespace {
-constexpr uint8_t F_U8 = 1;
-constexpr uint8_t F_U16 = 2;
-constexpr uint8_t F_U32 = 3;
-constexpr uint8_t F_I64 = 4;
-constexpr uint8_t F_STR = 5;
-} // namespace
-
 // ---- 写入工具 Writer ----
 // 依次将各类型以小端序追加到缓冲区 buf_ 尾部；str 先写 u16 长度再写字节。
 
