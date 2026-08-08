@@ -77,15 +77,9 @@ int ServerCore::run(uint16_t port, const std::string& dbPath) {
         }
     });
 
-    // 阻塞等待
-    {
-        std::unique_lock<std::mutex> lock(impl_->sessionsMutex);
-        // 简单自旋等待 stop() 被调用
-        while (impl_->running.load()) {
-            lock.unlock();
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            lock.lock();
-        }
+    // 阻塞等待 stop() 被调用（running 是 atomic，无需加锁）
+    while (impl_->running.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     impl_->stop();
     return 0;
