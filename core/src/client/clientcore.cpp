@@ -1,3 +1,9 @@
+// 客户端逻辑核心实现
+// 线程模型：
+//   start() 启动一个工作线程运行 run()——负责连接、收发、心跳；
+//   handlePacket() 在逻辑线程内分发并回调 IClientListener；
+//   公开 API 线程安全，未连接时的命令进入 pendingQueue 待连接后补发。
+// 内部实现细节（Impl）见 clientcore_impl.h。
 #include "client/clientcore_impl.h"
 
 #include <chrono>
@@ -14,6 +20,7 @@ ClientCore::~ClientCore() {
     impl_ = nullptr;
 }
 
+// 发送一帧数据；未连接或发送失败时缓存到待发队列（最多 128 条，避免无限堆积）
 bool ClientCore::Impl::sendPacket(const Packet& pkt) {
     std::lock_guard<std::mutex> lock(sendMutex);
     if (!connected.load()) {
@@ -30,6 +37,7 @@ bool ClientCore::Impl::sendPacket(const Packet& pkt) {
     return true;
 }
 
+// 工作线程主循环：连接 -> 补发队列 -> 循环（心跳 + 收帧 + 分发）
 void ClientCore::Impl::run() {
     if (!sock.connect(host, port, 8000)) {
         if (listener) listener->onConnectionChanged(false);
@@ -96,6 +104,7 @@ void ClientCore::Impl::run() {
     if (wasConnected && listener) listener->onConnectionChanged(false);
 }
 
+// 按命令字分发服务器返回的帧，解码后调用对应回调（均在逻辑线程）
 void ClientCore::Impl::handlePacket(const Packet& pkt) {
     switch (pkt.cmd) {
         case CMD_LOGIN_RESP: {
@@ -372,7 +381,12 @@ void ClientCore::Impl::stop() {
 }
 
 // ---- ClientCore 公共接口 ----
+// 以下方法均为"编码请求帧 + sendPacket"的模式：
+//   1. 用 codec 的 encodeXxxReq 把参数写入 Writer
+//   2. 设置命令字 pkt.cmd
+//   3. 交给 sendPacket（未连接时自动进入待发队列，连接后补发）
 
+// 启动工作线程并连接；内部先 stop() 清空旧状态再建新连接
 bool ClientCore::start(const std::string& host, uint16_t port, IClientListener* listener) {
     stop();
     // 每次重新连接都允许重新下载头像；头像图片缓存由 UI 层维护，不能依赖旧连接的请求状态
@@ -593,6 +607,8 @@ void ClientCore::Impl::autoDownloadImages(const std::vector<MessageInfo>& msgs) 
 
 void ClientCore::sendFileMessage(int64_t targetId, int targetType, int msgType,
                                  const std::string& path) {
+    // 文件消息流程：先读文件并上传，收到 CMD_UPLOAD_FILE_RESP 拿到 fileId
+    // 后，再把 "fileId|name|size|mime" 作为消息内容发出（见 handlePacket）。
     std::ifstream ifs(path, std::ios::binary);
     if (!ifs) {
         impl_->listener->onError(10, "无法读取文件: " + path);
@@ -678,6 +694,9 @@ void ClientCore::updateProfileWithAvatarUpload(const std::string& path,
                                                const std::string& nickname,
                                                const std::string& oldPassword,
                                                const std::string& newPassword) {
+    // 带头像的资料修改：先上传头像文件，上传成功后（handlePacket 里
+    // 检测到 pendingProfile.waitingUpload）自动补发 CMD_UPDATE_PROFILE_REQ，
+    // 把 fileId 填进 avatar 字段。
     if (path.empty()) {
         updateProfile(nickname, "", oldPassword, newPassword);
         return;

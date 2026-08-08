@@ -1,3 +1,7 @@
+// socket 封装实现
+// 职责：把 POSIX/Windows 两套 socket API 统一成阻塞式、线程安全的接口，
+//       供 ClientCore/ServerCore 使用。Linux 用 MSG_NOSIGNAL，macOS/iOS
+//       用 SO_NOSIGPIPE 防止写已关闭连接时产生 SIGPIPE 终止进程。
 #include "net/socket.h"
 
 #include <cerrno>
@@ -25,6 +29,7 @@ namespace im {
 #define closesocket ::close
 #endif
 
+// 返回最近一次 socket 错误的可读描述（errno）
 std::string lastSocketError() {
     char buf[256] = {0};
 #ifdef _WIN32
@@ -55,12 +60,15 @@ Socket& Socket::operator=(Socket&& other) noexcept {
 
 Socket::~Socket() { close(); }
 
+// 建立 TCP 连接（带超时）：
+// 采用"非阻塞 connect + select 等待可写"实现可超时的连接，
+// 避免默认阻塞 connect 长时间卡死（尤其目标主机不可达时）。
 bool Socket::connect(const std::string& host, uint16_t port, int timeoutMs) {
     close();
 
     struct addrinfo hints;
     std::memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
+    hints.ai_family = AF_INET;        // 仅 IPv4
     hints.ai_socktype = SOCK_STREAM;
 
     struct addrinfo* result = nullptr;
@@ -85,7 +93,7 @@ bool Socket::connect(const std::string& host, uint16_t port, int timeoutMs) {
         ioctlsocket(sock, FIONBIO, &mode);
 #else
         int flags = fcntl(sock, F_GETFL, 0);
-        fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+        fcntl(sock, F_SETFL, flags | O_NONBLOCK);   // 先切到非阻塞再 connect
 #endif
 
         int rc = ::connect(sock, p->ai_addr, static_cast<socklen_t>(p->ai_addrlen));
@@ -111,6 +119,7 @@ bool Socket::connect(const std::string& host, uint16_t port, int timeoutMs) {
             }
 #else
             if (errno == EINPROGRESS) {
+                // 连接进行中：等待可写，然后检查 SO_ERROR 确认是否成功
                 fd_set wfds;
                 FD_ZERO(&wfds);
                 FD_SET(sock, &wfds);
@@ -149,11 +158,12 @@ bool Socket::connect(const std::string& host, uint16_t port, int timeoutMs) {
     fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
 #endif
 
-    setNoDelay(true);
+    setNoDelay(true);   // TCP_NODELAY：小消息即时发送
     fd_ = sock;
     return true;
 }
 
+// 服务端：监听指定端口（绑定 0.0.0.0，所有网卡可接入）
 bool Socket::listen(uint16_t port, int backlog) {
     close();
     int sock = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -174,6 +184,7 @@ bool Socket::listen(uint16_t port, int backlog) {
     return true;
 }
 
+// 接受一个连接（阻塞），返回新 socket
 Socket Socket::accept() {
     struct sockaddr_in peer;
     socklen_t len = sizeof(peer);
@@ -190,6 +201,7 @@ Socket Socket::accept() {
     return s;
 }
 
+// 立即中止收发（可唤醒同 fd 上阻塞的 recv/send）
 void Socket::shutdown() {
     if (fd_ < 0) return;
 #ifdef _WIN32
@@ -208,13 +220,14 @@ void Socket::close() {
     }
 }
 
+// 阻塞发送全部数据；中途失败返回 false（调用方负责关闭连接）
 bool Socket::sendAll(const void* data, size_t len) {
     if (fd_ < 0) return false;
     const char* p = static_cast<const char*>(data);
     size_t sent = 0;
     while (sent < len) {
 #ifdef _WIN32
-        ssize_t n = ::send(fd_, p + sent, static_cast<int>(len - sent), 0);
+        int n = ::send(fd_, p + sent, static_cast<int>(len - sent), 0);
 #elif defined(MSG_NOSIGNAL)
         ssize_t n = ::send(fd_, p + sent, len - sent, MSG_NOSIGNAL);
 #else
@@ -226,6 +239,7 @@ bool Socket::sendAll(const void* data, size_t len) {
     return true;
 }
 
+// 阻塞接收恰好 len 字节；返回 1=成功 0=断开/致命错误 -1=超时
 int Socket::recvExact(void* data, size_t len) {
     if (fd_ < 0) return 0;
     char* p = static_cast<char*>(data);

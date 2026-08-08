@@ -1,9 +1,16 @@
+// 协议编解码实现
+// 职责：
+//   1. 提供二进制读写工具 Writer/Reader（所有整数采用小端字节序）
+//   2. 组装/解析完整数据帧 encodePacket / decodePacket（帧头 12 字节）
+//   3. 各命令正文（请求/响应/推送）的序列化与反序列化
+// 本文件只做纯字节编解码，不涉及网络、线程与业务逻辑。
 #include "protocol/codec.h"
 
 #include <cstring>
 
 namespace im {
 
+// 正文字段类型标记（仅用于代码阅读/调试，实际按函数顺序直接读）
 namespace {
 constexpr uint8_t F_U8 = 1;
 constexpr uint8_t F_U16 = 2;
@@ -12,8 +19,12 @@ constexpr uint8_t F_I64 = 4;
 constexpr uint8_t F_STR = 5;
 } // namespace
 
+// ---- 写入工具 Writer ----
+// 依次将各类型以小端序追加到缓冲区 buf_ 尾部；str 先写 u16 长度再写字节。
+
 void Writer::u8(uint8_t v) { buf_.push_back(v); }
 void Writer::u16(uint16_t v) {
+    // 低字节在前（小端序）
     buf_.push_back(static_cast<uint8_t>(v & 0xFF));
     buf_.push_back(static_cast<uint8_t>((v >> 8) & 0xFF));
 }
@@ -25,15 +36,19 @@ void Writer::i64(int64_t v) {
     for (int i = 0; i < 8; ++i) buf_.push_back(static_cast<uint8_t>((u >> (i * 8)) & 0xFF));
 }
 void Writer::str(const std::string& s) {
+    // 字符串最长 0xFFFF 字节，超出视为协议错误
     if (s.size() > 0xFFFF) throw std::runtime_error("string too long");
     u16(static_cast<uint16_t>(s.size()));
     buf_.insert(buf_.end(), s.begin(), s.end());
 }
 void Writer::bytes(const std::vector<uint8_t>& b) {
+    // 先写 u32 字节数，再写入原始字节
     u32(static_cast<uint32_t>(b.size()));
     buf_.insert(buf_.end(), b.begin(), b.end());
 }
 
+// ---- 读取工具 Reader ----
+// 与 Writer 对称：从缓冲区按小端序依次读取；越界抛 "packet too short"。
 const uint8_t* Reader::take(size_t n) {
     if (pos_ + n > data_.size()) throw std::runtime_error("packet too short");
     const uint8_t* p = data_.data() + pos_;
@@ -68,6 +83,7 @@ std::vector<uint8_t> Reader::bytes() {
     return std::vector<uint8_t>(p, p + n);
 }
 
+// 组装完整数据帧：12 字节头（magic/version/cmd/reserved/bodyLen）+ 正文
 std::vector<uint8_t> encodePacket(const Packet& pkt) {
     std::vector<uint8_t> out;
     out.reserve(12 + pkt.body.size());
@@ -85,6 +101,7 @@ std::vector<uint8_t> encodePacket(const Packet& pkt) {
     return out;
 }
 
+// 解析完整数据帧：校验 magic/version/长度，取出 cmd 与正文
 bool decodePacket(const uint8_t* data, size_t len, Packet& out) {
     if (len < 12) return false;
     uint32_t magic = 0;
@@ -135,6 +152,10 @@ void encodeSimpleReq(Writer& w) { (void)w; }
 
 void encodeLogoutReq(Writer& w) { (void)w; }
 
+// ---- 各命令正文编解码 ----
+// 每个 encodeXxxReq / decodeXxxResp / decodeXxxPush 与 codec.h 声明一一对应，
+// 字段顺序必须与服务端/客户端一致，修改协议时两端需同步更新。
+
 void writeMessage(Writer& w, const MessageInfo& m) {
     w.i64(m.id);
     w.i64(m.fromId);
@@ -167,6 +188,7 @@ MessageInfo readMessage(Reader& r) {
     return m;
 }
 
+// 序列化/反序列化 UserInfo（各响应/推送共用）
 void writeUser(Writer& w, const UserInfo& u) {
     w.i64(u.id);
     w.str(u.username);

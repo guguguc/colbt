@@ -4,6 +4,9 @@ project(colbt CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 导出 compile_commands.json（供 clangd/LSP/编辑器使用）
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 option(BUILD_SERVER "Build TCP server" ON)
 option(BUILD_CLIENT "Build Qt client" ON)
 

@@ -1,3 +1,10 @@
+// 服务器核心实现
+// 架构：
+//   accept 线程：循环 accept 新连接，为每个连接创建 Session（读+写两线程）
+//   Session：见 session.cpp，负责该连接的收帧分发与队列发送
+//   Impl：持有会话注册表 byUser/allSessions、Storage 持久化、文件目录
+// 所有 onXxx 处理器在对应 Session 的读线程中串行执行，
+// 跨会话推送通过 broadcastToUser 写入目标会话的发送队列。
 #include "server/servercore_impl.h"
 
 #include <csignal>
@@ -31,6 +38,7 @@ ServerCore::~ServerCore() {
     impl_ = nullptr;
 }
 
+// 启动：打开数据库 -> 监听端口 -> 启动 accept 线程（阻塞直到 stop）
 int ServerCore::run(uint16_t port, const std::string& dbPath) {
     impl_->dbPath = dbPath;
     if (!impl_->storage.open(dbPath)) {
@@ -45,6 +53,7 @@ int ServerCore::run(uint16_t port, const std::string& dbPath) {
     impl_->running.store(true);
     std::cout << "[server] IM 服务器已启动: 端口 " << port << " 数据库 " << dbPath << std::endl;
 
+    // accept 线程：每秒 select 一次检查新连接（带超时便于优雅退出）
     impl_->acceptThread = std::thread([this] {
         while (impl_->running.load()) {
             // select 带超时，便于停止
@@ -84,6 +93,7 @@ int ServerCore::run(uint16_t port, const std::string& dbPath) {
 
 void ServerCore::stop() { impl_->stop(); }
 
+// 优雅停止：停止 accept，关监听，停止并回收所有会话
 void ServerCore::Impl::stop() {
     if (!running.exchange(false)) return;
 
@@ -110,12 +120,14 @@ void ServerCore::Impl::stop() {
     std::cout << "[server] 服务器已停止" << std::endl;
 }
 
+// 查某用户的连接会话（不存在返回 nullptr）
 Session* ServerCore::Impl::sessionOf(int64_t userId) {
     std::lock_guard<std::mutex> lock(sessionsMutex);
     auto it = byUser.find(userId);
     return it == byUser.end() ? nullptr : it->second;
 }
 
+// 登录成功后注册会话；同一账号再次登录则顶掉旧会话（顶号）
 void ServerCore::Impl::registerSession(int64_t userId, Session* s) {
     std::lock_guard<std::mutex> lock(sessionsMutex);
     auto it = byUser.find(userId);
@@ -127,6 +139,7 @@ void ServerCore::Impl::registerSession(int64_t userId, Session* s) {
     s->setUserId(userId);
 }
 
+// 会话关闭时从注册表移除
 void ServerCore::Impl::unregisterSession(Session* s) {
     std::lock_guard<std::mutex> lock(sessionsMutex);
     if (s->userId() >= 0) {
@@ -136,10 +149,12 @@ void ServerCore::Impl::unregisterSession(Session* s) {
     allSessions.erase(s);
 }
 
+// 向某用户推送一帧（该用户在线才发送）
 void ServerCore::Impl::broadcastToUser(int64_t userId, const Packet& pkt) {
     if (Session* s = sessionOf(userId); s && s->isAlive()) s->enqueue(pkt);
 }
 
+// 用户所有在线好友的 userId 列表
 std::vector<int64_t> ServerCore::Impl::onlineFriendsOf(int64_t userId) {
     std::vector<int64_t> out;
     auto friends = storage.getFriends(userId);
@@ -152,6 +167,7 @@ std::vector<int64_t> ServerCore::Impl::onlineFriendsOf(int64_t userId) {
     return out;
 }
 
+// 连接关闭回调：注销会话并通知其在线好友"下线"
 void ServerCore::Impl::onSessionClosed(Session* s) {
     int64_t uid = s->userId();
     bool wasKnown = false;
@@ -173,6 +189,7 @@ void ServerCore::Impl::onSessionClosed(Session* s) {
     }
 }
 
+// 命令分发总入口：按命令字调用对应处理器；解析异常回 CMD_ERROR
 void ServerCore::Impl::handleMessage(Session* s, const Packet& pkt) {
     try {
         switch (pkt.cmd) {
@@ -253,6 +270,7 @@ void ServerCore::Impl::handleMessage(Session* s, const Packet& pkt) {
     }
 }
 
+// 已读上报：标记与对方会话中对方发来的消息为已读，并回执本人、通知对方
 void ServerCore::Impl::onMarkRead(Session* s, const Packet& pkt) {
     int64_t peerId;
     int targetType;
@@ -300,6 +318,7 @@ std::string ServerCore::Impl::filePathOf(const std::string& fileId) const {
     return fileDir + "/" + fileId;
 }
 
+// 上传文件：校验大小，写入磁盘并登记 files 表，返回 fileId
 void ServerCore::Impl::onUploadFile(Session* s, const Packet& pkt) {
     Packet resp;
     resp.cmd = CMD_UPLOAD_FILE_RESP;
@@ -355,6 +374,7 @@ void ServerCore::Impl::onUploadFile(Session* s, const Packet& pkt) {
               << std::endl;
 }
 
+// 下载文件：按 fileId 读磁盘并返回数据
 void ServerCore::Impl::onDownloadFile(Session* s, const Packet& pkt) {
     Packet resp;
     resp.cmd = CMD_DOWNLOAD_FILE_RESP;
@@ -404,6 +424,7 @@ void ServerCore::Impl::onDownloadFile(Session* s, const Packet& pkt) {
               << "B)" << std::endl;
 }
 
+// 撤回消息：仅发送者 2 分钟内可撤回，成功后推送撤回给会话成员
 void ServerCore::Impl::onRecallMsg(Session* s, const Packet& pkt) {
     int64_t msgId, targetId;
     int targetType;
@@ -443,6 +464,7 @@ void ServerCore::Impl::onRecallMsg(Session* s, const Packet& pkt) {
     s->enqueue(push); // 也通知本人
 }
 
+// 删除好友：双向删除并推送通知
 void ServerCore::Impl::onDeleteFriend(Session* s, const Packet& pkt) {
     int64_t friendId;
     decodeDeleteFriendReq(pkt.body, friendId);
@@ -473,6 +495,7 @@ void ServerCore::Impl::onDeleteFriend(Session* s, const Packet& pkt) {
     std::cout << "[server] 删除好友: " << uid << " <-> " << friendId << std::endl;
 }
 
+// 踢人：仅群主可踢，踢出后推送群更新
 void ServerCore::Impl::onKickMember(Session* s, const Packet& pkt) {
     int64_t groupId, memberId;
     decodeKickMemberReq(pkt.body, groupId, memberId);
@@ -496,6 +519,7 @@ void ServerCore::Impl::onKickMember(Session* s, const Packet& pkt) {
     for (const auto& member : g.members) broadcastToUser(member.user.id, push);
 }
 
+// 退群：移除群成员并推送群更新
 void ServerCore::Impl::onLeaveGroup(Session* s, const Packet& pkt) {
     int64_t groupId;
     decodeGroupIdReq(pkt.body, groupId);
@@ -514,6 +538,7 @@ void ServerCore::Impl::onLeaveGroup(Session* s, const Packet& pkt) {
     for (const auto& member : g.members) broadcastToUser(member.user.id, push);
 }
 
+// 解散群：仅群主可解散，移除所有成员并推送
 void ServerCore::Impl::onDismissGroup(Session* s, const Packet& pkt) {
     int64_t groupId;
     decodeGroupIdReq(pkt.body, groupId);
@@ -536,6 +561,7 @@ void ServerCore::Impl::onDismissGroup(Session* s, const Packet& pkt) {
     for (const auto& member : g.members) broadcastToUser(member.user.id, push);
 }
 
+// 改群名：仅群主可改，推送群更新
 void ServerCore::Impl::onRenameGroup(Session* s, const Packet& pkt) {
     int64_t groupId;
     std::string name;
@@ -558,6 +584,7 @@ void ServerCore::Impl::onRenameGroup(Session* s, const Packet& pkt) {
     for (const auto& member : g.members) broadcastToUser(member.user.id, push);
 }
 
+// 搜索消息：在本人参与的所有会话中按关键词搜索
 void ServerCore::Impl::onSearchMsgs(Session* s, const Packet& pkt) {
     std::string keyword;
     int limit;
@@ -573,6 +600,7 @@ void ServerCore::Impl::onSearchMsgs(Session* s, const Packet& pkt) {
     s->enqueue(resp);
 }
 
+// 输入中：把"正在输入"推送给会话对端/群成员
 void ServerCore::Impl::onTyping(Session* s, const Packet& pkt) {
     int64_t targetId;
     int targetType;
@@ -595,6 +623,7 @@ void ServerCore::Impl::onTyping(Session* s, const Packet& pkt) {
     }
 }
 
+// 修改资料：改密码需旧密码校验，成功后回传新资料并推送好友/群成员
 void ServerCore::Impl::onUpdateProfile(Session* s, const Packet& pkt) {
     int64_t uid = s->userId();
     std::string nickname, avatar, oldPassword, newPassword;
@@ -679,6 +708,7 @@ void ServerCore::Impl::pushError(Session* s, int code, const std::string& msg) {
     s->enqueue(pkt);
 }
 
+// 登录：校验密码，注册会话（顶号），回传用户信息并同步在线状态
 void ServerCore::Impl::onLogin(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     std::string username = r.str();
@@ -729,6 +759,7 @@ void ServerCore::Impl::onLogin(Session* s, const Packet& pkt) {
     }
 }
 
+// 注册：创建用户（用户名唯一），回传结果
 void ServerCore::Impl::onRegister(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     std::string username = r.str();
@@ -762,6 +793,7 @@ void ServerCore::Impl::onRegister(Session* s, const Packet& pkt) {
     std::cout << "[server] 新用户注册: " << username << " (id=" << id << ")" << std::endl;
 }
 
+// 拉取好友列表 + 群列表（含在线状态）
 void ServerCore::Impl::onGetContacts(Session* s) {
     int64_t uid = s->userId();
     Packet resp;
@@ -797,6 +829,7 @@ void ServerCore::Impl::onGetContacts(Session* s) {
     s->enqueue(resp);
 }
 
+// 添加好友：按用户名查找并建立双向好友关系，推送对方
 void ServerCore::Impl::onAddFriend(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     std::string username = r.str();
@@ -847,6 +880,7 @@ void ServerCore::Impl::onAddFriend(Session* s, const Packet& pkt) {
     broadcastToUser(target.id, push);
 }
 
+// 创建群：建群 + 拉入成员 + 回传群信息
 void ServerCore::Impl::onCreateGroup(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     std::string name = r.str();
@@ -915,6 +949,7 @@ void ServerCore::Impl::onCreateGroup(Session* s, const Packet& pkt) {
     }
 }
 
+// 拉取群成员列表
 void ServerCore::Impl::onGetGroupMembers(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     int64_t gid = r.i64();
@@ -936,6 +971,7 @@ void ServerCore::Impl::onGetGroupMembers(Session* s, const Packet& pkt) {
     s->enqueue(resp);
 }
 
+// 拉取最近会话列表（按最后消息时间倒序）
 void ServerCore::Impl::onGetSessions(Session* s) {
     Packet resp;
     resp.cmd = CMD_GET_SESSIONS_RESP;
@@ -955,6 +991,7 @@ void ServerCore::Impl::onGetSessions(Session* s) {
     s->enqueue(resp);
 }
 
+// 拉取某个会话的历史消息（分页）
 void ServerCore::Impl::onGetHistory(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     int64_t targetId = r.i64();
@@ -991,6 +1028,7 @@ void ServerCore::Impl::onGetHistory(Session* s, const Packet& pkt) {
     s->enqueue(resp);
 }
 
+// 发送消息：落库并回执发送方，推送给单聊对方或群成员
 void ServerCore::Impl::onSendMessage(Session* s, const Packet& pkt) {
     Reader r(pkt.body);
     int64_t targetId = r.i64();

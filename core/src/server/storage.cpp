@@ -1,3 +1,7 @@
+// SQLite 持久化层实现
+// 所有方法线程安全（内部用 mutex_ 串行化），表结构在 open() 中自建并做列迁移。
+// 表：users / friends / groups / group_members / messages / files
+// 文件本体存在 <db目录>/files，files 表只存元数据。
 #include "server/storage.h"
 
 #include <algorithm>
@@ -25,6 +29,7 @@ static int busyHandler(void*, int count) {
     return count < 100 ? 1 : 0;
 }
 
+// 打开数据库：建表 + WAL 模式 + 旧库列迁移
 bool Storage::open(const std::string& path) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (db_) return true;
@@ -113,6 +118,7 @@ bool Storage::open(const std::string& path) {
     return db_ != nullptr;
 }
 
+// 关闭数据库
 void Storage::close() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (db_) {
@@ -121,6 +127,7 @@ void Storage::close() {
     }
 }
 
+// 执行无参数 SQL（建表用）
 bool Storage::exec(const std::string& sql, std::string& err) {
     char* zErr = nullptr;
     int rc = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &zErr);
@@ -132,6 +139,7 @@ bool Storage::exec(const std::string& sql, std::string& err) {
     return true;
 }
 
+// 创建用户；用户名唯一，返回新 id（失败返回 -1，err 含原因）
 int64_t Storage::createUser(const std::string& username, const std::string& pwdHash,
                             const std::string& nickname, std::string& err) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -157,6 +165,7 @@ int64_t Storage::createUser(const std::string& username, const std::string& pwdH
     return id;
 }
 
+// 按用户名查找用户及其密码哈希
 bool Storage::findUserByName(const std::string& username, UserInfo& out, std::string& pwdHash) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -177,6 +186,7 @@ bool Storage::findUserByName(const std::string& username, UserInfo& out, std::st
     return ok;
 }
 
+// 按 id 查找用户
 bool Storage::findUserById(int64_t id, UserInfo& out) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -196,6 +206,7 @@ bool Storage::findUserById(int64_t id, UserInfo& out) {
     return ok;
 }
 
+// 更新资料：仅更新非空字段（newPwdHash 为空则不改密码）
 bool Storage::updateUser(int64_t id, const std::string& nickname, const std::string& avatar,
                          const std::string& newPwdHash, std::string& err) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -223,6 +234,7 @@ bool Storage::updateUser(int64_t id, const std::string& nickname, const std::str
     return ok;
 }
 
+// 添加好友（单向，调用方需双向插入）
 bool Storage::addFriend(int64_t userId, int64_t friendId, const std::string& remark) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -250,6 +262,7 @@ bool Storage::addFriend(int64_t userId, int64_t friendId, const std::string& rem
     return ok;
 }
 
+// 取某用户的好友列表
 std::vector<BuddyInfo> Storage::getFriends(int64_t userId) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<BuddyInfo> out;
@@ -272,6 +285,7 @@ std::vector<BuddyInfo> Storage::getFriends(int64_t userId) {
     return out;
 }
 
+// 判断两人是否互为好友
 bool Storage::areFriends(int64_t a, int64_t b) {
     if (a == b) return false;
     sqlite3_stmt* stmt = nullptr;
@@ -284,6 +298,7 @@ bool Storage::areFriends(int64_t a, int64_t b) {
     return ok;
 }
 
+// 删除好友（单向）
 bool Storage::deleteFriend(int64_t a, int64_t b) {
     std::lock_guard<std::mutex> lock(mutex_);
     bool ok = true;
@@ -303,6 +318,7 @@ bool Storage::deleteFriend(int64_t a, int64_t b) {
     return ok;
 }
 
+// 创建群，返回群 id
 int64_t Storage::createGroup(const std::string& name, int64_t ownerId, std::string& err) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -324,6 +340,7 @@ int64_t Storage::createGroup(const std::string& name, int64_t ownerId, std::stri
     return id;
 }
 
+// 拉成员进群
 bool Storage::addGroupMember(int64_t groupId, int64_t userId, const std::string& groupNick) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -338,6 +355,7 @@ bool Storage::addGroupMember(int64_t groupId, int64_t userId, const std::string&
     return ok;
 }
 
+// 取用户加入的所有群（含成员）
 std::vector<GroupInfo> Storage::getGroups(int64_t userId) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<GroupInfo> out;
@@ -378,6 +396,7 @@ std::vector<MemberInfo> Storage::getGroupMembers(int64_t groupId) {
     return getGroupMembersUnlocked(groupId);
 }
 
+// 取群成员（调用方已持有锁）
 std::vector<MemberInfo> Storage::getGroupMembersUnlocked(int64_t groupId) {
     std::vector<MemberInfo> out;
     sqlite3_stmt* stmt = nullptr;
@@ -399,6 +418,7 @@ std::vector<MemberInfo> Storage::getGroupMembersUnlocked(int64_t groupId) {
     return out;
 }
 
+// 判断是否为群成员
 bool Storage::isGroupMember(int64_t groupId, int64_t userId) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -411,6 +431,7 @@ bool Storage::isGroupMember(int64_t groupId, int64_t userId) {
     return ok;
 }
 
+// 按群 id 查群（0=不存在）
 int64_t Storage::findGroupById(int64_t id, GroupInfo& out) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -429,6 +450,7 @@ int64_t Storage::findGroupById(int64_t id, GroupInfo& out) {
     return ret;
 }
 
+// 踢人：删除群成员记录
 bool Storage::kickMember(int64_t groupId, int64_t memberId) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -441,10 +463,12 @@ bool Storage::kickMember(int64_t groupId, int64_t memberId) {
     return ok;
 }
 
+// 退群
 bool Storage::leaveGroup(int64_t groupId, int64_t userId) {
     return kickMember(groupId, userId);
 }
 
+// 解散群：删群并清空成员
 bool Storage::dismissGroup(int64_t groupId) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::string err;
@@ -470,6 +494,7 @@ bool Storage::dismissGroup(int64_t groupId) {
     return ok;
 }
 
+// 改群名
 bool Storage::renameGroup(int64_t groupId, const std::string& name) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -482,6 +507,7 @@ bool Storage::renameGroup(int64_t groupId, const std::string& name) {
     return ok;
 }
 
+// 保存一条消息，返回消息 id
 int64_t Storage::saveMessage(int64_t fromId, int64_t targetId, int targetType, int msgType,
                              const std::string& content, int64_t ts, int isRead,
                              int64_t replyToId) {
@@ -507,6 +533,7 @@ int64_t Storage::saveMessage(int64_t fromId, int64_t targetId, int targetType, i
     return id;
 }
 
+// 按 id 查消息（撤回校验用）
 bool Storage::findMessage(int64_t msgId, MessageInfo& out) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -531,6 +558,7 @@ bool Storage::findMessage(int64_t msgId, MessageInfo& out) {
     return ok;
 }
 
+// 撤回：仅发送者可删，返回是否成功
 bool Storage::recallMessage(int64_t msgId, int64_t fromId) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -543,6 +571,7 @@ bool Storage::recallMessage(int64_t msgId, int64_t fromId) {
     return ok;
 }
 
+// 把 readerId 与 peerId 会话中对方发来的消息标记已读，返回条数
 int Storage::markMessagesRead(int64_t readerId, int64_t peerId, int targetType) {
     std::lock_guard<std::mutex> lock(mutex_);
     sqlite3_stmt* stmt = nullptr;
@@ -566,6 +595,7 @@ int Storage::markMessagesRead(int64_t readerId, int64_t peerId, int targetType) 
     return changed;
 }
 
+// 登记文件元数据（文件本体已由 servercore 写入磁盘）
 bool Storage::createFile(const std::string& fileId, const std::string& name, int64_t size,
                          const std::string& mime) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -582,6 +612,7 @@ bool Storage::createFile(const std::string& fileId, const std::string& name, int
     return ok;
 }
 
+// 按 fileId 查文件元数据
 bool Storage::findFile(const std::string& fileId, std::string& name, int64_t& size,
                        std::string& mime) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -600,6 +631,7 @@ bool Storage::findFile(const std::string& fileId, std::string& name, int64_t& si
     return ok;
 }
 
+// 取会话历史：单聊双向查询、群聊按群查，支持 beforeId 分页
 std::vector<MessageInfo> Storage::getHistory(int64_t myUserId, int64_t targetId, int targetType,
                                              int limit, int64_t beforeId) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -655,6 +687,7 @@ std::vector<MessageInfo> Storage::getHistory(int64_t myUserId, int64_t targetId,
     return out;
 }
 
+// 搜索消息：只搜用户参与的会话
 std::vector<MessageInfo> Storage::searchMessages(int64_t userId, const std::string& keyword,
                                                  int limit) {
     std::lock_guard<std::mutex> lock(mutex_);
